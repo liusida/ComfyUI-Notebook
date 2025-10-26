@@ -47,6 +47,11 @@ plt.title("Sine")
 
 ![sine](./img/sine.png)
 
+
+**Redirecting stdout and stderror:**
+
+![bug](./img/bug.png)
+
 ## Available Variables
 
 - `globals` - Shared dictionary (persists across executions)
