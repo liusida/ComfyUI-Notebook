@@ -41,7 +41,7 @@ class NotebookCell(io.ComfyNode):
                 io.String.Input(
                     "code",
                     multiline=True,
-                    default="# Enter your Python code here\n# Use 'input' variable to access data from previous cell\n# Use 'globals' to share variables between cells\n# Example: globals['data'] = [1, 2, 3]",
+                    default="",
                     tooltip="Python code to execute. Use 'input' for connected data, 'globals' for sharing between cells.",
                 ),
                 io.AnyType.Input(
