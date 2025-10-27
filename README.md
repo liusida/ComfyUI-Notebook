@@ -52,6 +52,12 @@ plt.title("Sine")
 
 ![bug](./img/bug.png)
 
+**Investigating GPT-2's weights:**
+
+![gpt](./img/gpt.png)
+
+[Workflow: GPT-demo.json](./workflows/GPT-demo.json)
+
 ## Available Variables
 
 - `globals` - Shared dictionary (persists across executions)
