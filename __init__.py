@@ -47,12 +47,12 @@ class NotebookCell(io.ComfyNode):
                 io.AnyType.Input(
                     "input",
                     optional=True,
-                    tooltip="Optional input from another cell's output. Access via 'input' variable.",
+                    tooltip="Optional input from another cell. Access via 'input' variable.",
                 ),
                 io.AnyType.Input(
                     "input_2",
                     optional=True,
-                    tooltip="Optional input from another cell's output. Access via 'input' variable.",
+                    tooltip="Optional extra input. Access via 'input_2' variable.",
                 ),                
             ],
             outputs=[
