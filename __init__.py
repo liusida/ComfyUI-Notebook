@@ -199,6 +199,7 @@ class NotebookCell(io.ComfyNode):
         # Get result from namespace (only get once)
         result = namespace.get('_result', None)
         
+        image_output = None
         # Auto-capture matplotlib figures at the end (like Jupyter does)
         try:
             import matplotlib.pyplot as plt
@@ -206,52 +207,26 @@ class NotebookCell(io.ComfyNode):
             from io import BytesIO
             
             # Check if there's a current figure with plots
-            if result is None or not isinstance(result, PILImage.Image):
-                fig = plt.gcf()
-                if fig.get_axes():
-                    # Check if figure has actual data
-                    has_data = False
-                    for ax in fig.get_axes():
-                        if ax.lines or ax.patches or ax.collections or ax.images:
-                            has_data = True
-                            break
-                    
-                    if has_data:
-                        buf = BytesIO()
-                        fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
-                        buf.seek(0)
-                        pil_image = PILImage.open(buf)
-                        plt.close(fig)
-                        result = pil_image
-        except:
-            pass
-        
-        # Try to detect and convert image outputs
-        image_output = None
-        try:
-            import torch
-            from PIL import Image as PILImage
-            import numpy as np
-            
-            # Check if result is an image
-            if isinstance(result, PILImage.Image):
-                # Convert PIL Image to tensor
-                img_array = np.array(result.convert("RGB")).astype(np.float32) / 255.0
-                image_output = torch.from_numpy(img_array)[None,]
-            elif isinstance(result, np.ndarray):
-                # Convert numpy array to tensor
-                if len(result.shape) == 2:
-                    # Grayscale, add channel
-                    result = np.stack((result,) * 3, axis=-1)
-                elif result.shape[-1] == 4:
-                    # RGBA, convert to RGB
-                    result = result[:, :, :3]
-                # Ensure RGB format
-                if len(result.shape) == 3 and result.shape[2] == 3:
-                    img_array = result.astype(np.float32)
-                    if img_array.max() > 1.0:
-                        img_array = img_array / 255.0
+            fig = plt.gcf()
+            if fig.get_axes():
+                # Check if figure has actual data
+                has_data = False
+                for ax in fig.get_axes():
+                    if ax.lines or ax.patches or ax.collections or ax.images:
+                        has_data = True
+                        break
+                
+                if has_data:
+                    buf = BytesIO()
+                    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                    buf.seek(0)
+                    pil_image = PILImage.open(buf)
+                    plt.close(fig)
+                    import torch
+                    import numpy as np
+                    img_array = np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
                     image_output = torch.from_numpy(img_array)[None,]
+
         except:
             pass
         
