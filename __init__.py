@@ -6,7 +6,6 @@ import json
 import os
 
 from comfy_api.latest import ComfyExtension, io
-from comfy_execution.graph_utils import GraphBuilder
 
 # Set web directory for frontend extensions
 WEB_DIRECTORY = os.path.join(os.path.dirname(__file__), "web")
@@ -52,10 +51,10 @@ class NotebookCell(io.ComfyNode):
                 ),
             ],
             outputs=[
-                io.String.Output(),
-                io.Image.Output(),
+                io.AnyType.Output(display_name="Result"),
+                io.Image.Output(display_name="Plot"),
+                io.String.Output(display_name="Output"),
             ],
-            enable_expand=True,  # Enable dynamic subgraph creation
         )
     
     @classmethod
@@ -265,54 +264,8 @@ class NotebookCell(io.ComfyNode):
             except:
                 pass
         
-        # Check if the result is a dict (for dynamic variable previews)
-        if isinstance(result, dict) and result:
-            # For dict results, create dynamic preview nodes
-            g = GraphBuilder()
-            
-            # Create a PreviewAny node for each variable in the dict
-            for var_name, var_value in result.items():
-                # Convert value to a previewable format
-                preview_value = var_value
-                if not isinstance(var_value, str):
-                    try:
-                        preview_value = json.dumps(var_value, indent=2) if isinstance(var_value, (dict, list)) else str(var_value)
-                    except:
-                        preview_value = str(var_value)
-                
-                # Create a preview node for this variable
-                g.node(
-                    "PreviewAny",
-                    id=f"preview_{var_name}",
-                    source=preview_value
-                )
-            
-            # Finalize the graph (subgraph)
-            subgraph = g.finalize()
-            
-            # Add result summary to output
-            result_summary = f"[RESULT: {len(result)} variable(s) created]"
-            if all_output:
-                all_output += "\n" + result_summary
-            else:
-                all_output = result_summary
-            
-            # Clean up the output
-            if not all_output:
-                all_output = "[No output]"
-            
-            # Create UI output to display the results
-            ui_output = {"text": (all_output,)}
-            
-            # Return with expand to create the preview nodes dynamically
-            return io.NodeOutput(all_output, image_output, ui=ui_output, expand=subgraph)
-        
         # For non-dict results, display normally
         if result is not None and str(result) != 'None':
-            if all_output:
-                all_output += "\n[RESULT] "
-            else:
-                all_output += "[RESULT] "
             try:
                 all_output += str(result)
             except:
@@ -326,7 +279,7 @@ class NotebookCell(io.ComfyNode):
         ui_output = {"text": (all_output,)}
         
         # Return with image output (always provided now)
-        return io.NodeOutput(all_output, image_output, ui=ui_output)
+        return io.NodeOutput(result, image_output, all_output, ui=ui_output)
 
 
 class NotebookExtension(ComfyExtension):
