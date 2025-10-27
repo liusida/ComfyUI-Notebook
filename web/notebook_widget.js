@@ -44,6 +44,17 @@ function applyMonaco(textarea) {
     
     console.log("Applying Monaco Editor to textarea");
     
+    // Define custom theme with line number colors
+    monaco.editor.defineTheme('notebook-theme', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+            'editorLineNumber.foreground': '#333333',  // Normal line number color
+            'editorLineNumber.activeForeground': '#444444'  // Active line number color
+        }
+    });
+
     const originalValue = textarea.value;
     
     // Get the actual dimensions BEFORE hiding
@@ -75,19 +86,22 @@ function applyMonaco(textarea) {
     const editor = monaco.editor.create(editorContainer, {
         value: originalValue,
         language: 'python',
-        theme: 'vs-dark',
+        theme: 'notebook-theme',
         automaticLayout: true,  // Enable automatic layout resizing
         fontSize: 13,
         fontFamily: 'Consolas, Monaco, "Courier New", monospace',
-        lineNumbers: 'off',
-        minimap: { enabled: false },
+        lineNumbers: 'on',
+        minimap: { enabled: true },
         scrollBeyondLastLine: false,
         wordWrap: 'on',
         tabSize: 4,
         insertSpaces: true,
         renderLineHighlight: 'all',
         lineHeight: 1.4,
-        padding: { top: 8, bottom: 8 }
+        padding: { top: 8, bottom: 8 },
+        lineDecorationsWidth: 0,
+        glyphMargin: false,
+        lineNumbersMinChars: 3,
     });
     
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
