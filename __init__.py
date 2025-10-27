@@ -49,16 +49,21 @@ class NotebookCell(io.ComfyNode):
                     optional=True,
                     tooltip="Optional input from another cell's output. Access via 'input' variable.",
                 ),
+                io.AnyType.Input(
+                    "input_2",
+                    optional=True,
+                    tooltip="Optional input from another cell's output. Access via 'input' variable.",
+                ),                
             ],
             outputs=[
                 io.AnyType.Output(display_name="Result"),
                 io.Image.Output(display_name="Plot"),
-                io.String.Output(display_name="Output"),
+                io.String.Output(display_name="Stdout"),
             ],
         )
     
     @classmethod
-    def execute(cls, code: str, input=None) -> io.NodeOutput:
+    def execute(cls, code: str, input=None, input_2=None) -> io.NodeOutput:
         """
         Execute the provided Python code and return the results.
         
@@ -78,6 +83,7 @@ class NotebookCell(io.ComfyNode):
             "__name__": "__main__",
             "print": print,  # Will be overridden to capture output
             "input": input,  # Make input available to the code
+            "input_2": input_2,  # Make input available to the code
             "globals": _NOTEBOOK_GLOBALS,  # Global variables shared between cells
         }
         
