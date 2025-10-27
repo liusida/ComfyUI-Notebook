@@ -157,27 +157,32 @@ class NotebookCell(io.ComfyNode):
                 # Try to get the last expression result
                 # If the code ends with an expression (not just a statement), store it
                 lines = [line.strip() for line in code.strip().split('\n') if line.strip()]
-                if lines:
-                    last_line = lines[-1]
-                    # Skip if it's a comment or a statement assignment or a print statement
-                    if (not last_line.startswith('#') and 
-                        not last_line.startswith('def ') and
-                        not last_line.startswith('class ') and
-                        not last_line.startswith('if ') and
-                        not last_line.startswith('for ') and
-                        not last_line.startswith('while ') and
-                        not last_line.startswith('with ') and
-                        not last_line.startswith('import ') and
-                        not last_line.endswith(':') and
-                        not last_line.startswith('print(')):
-                        
-                        # Try to evaluate the last line if it's an expression
-                        try:
-                            last_expr = compile(last_line, '<string>', 'eval')
-                            last_result = eval(last_expr, namespace)
-                            namespace['_result'] = last_result
-                        except:
-                            pass  # Last line is a statement, not an expression
+
+                # Find the last non-comment, non-statement line
+                last_line = None
+                for line in reversed(lines):
+                    if (line and 
+                        not line.startswith('#') and 
+                        not line.startswith('def ') and
+                        not line.startswith('class ') and
+                        not line.startswith('if ') and
+                        not line.startswith('for ') and
+                        not line.startswith('while ') and
+                        not line.startswith('with ') and
+                        not line.startswith('import ') and
+                        not line.endswith(':') and
+                        not line.startswith('print(')):
+                        last_line = line
+                        break
+
+                if last_line:
+                    # Try to evaluate the last non-comment line if it's an expression
+                    try:
+                        last_expr = compile(last_line, '<string>', 'eval')
+                        last_result = eval(last_expr, namespace)
+                        namespace['_result'] = last_result
+                    except:
+                        pass  # Last line is a statement, not an expression
                     
             except Exception as e:
                 # Format error with traceback
