@@ -167,38 +167,16 @@ app.registerExtension({
     async nodeCreated(node) {
         if (node.comfyClass !== 'NotebookCell') return;
         
-        console.log("NotebookCell node created");
-        
         // Wait for the UI to be fully rendered
         setTimeout(() => {
             const textareas = document.querySelectorAll('textarea.comfy-multiline-input[placeholder="code"]');
-            
+
             textareas.forEach((textarea) => {
                 if (!textarea.hasAttribute('data-monaco-applied')) {
                     applyMonaco(textarea);
                 }
             });
         }, 100);
-        
-        // Periodic check for any textareas that might not have Monaco yet
-        const checkInterval = setInterval(() => {
-            // Wait for nodeElement to be found
-            const textareas = document.querySelectorAll('textarea.comfy-multiline-input[placeholder="code"]');
-            const unapplied = Array.from(textareas).filter(t => !t.hasAttribute('data-monaco-applied'));
-            
-            if (unapplied.length === 0) {
-                clearInterval(checkInterval);
-                return;
-            }
-            
-            unapplied.forEach(textarea => {
-                console.log("Found unapplied textarea, applying Monaco");
-                applyMonaco(textarea);
-            });
-        }, 500);
-        
-        // Clear interval after 10 seconds
-        setTimeout(() => clearInterval(checkInterval), 10000);
     }
 });
 
