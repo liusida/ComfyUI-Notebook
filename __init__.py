@@ -2,7 +2,6 @@ from typing_extensions import override
 import io as io_module
 import sys
 import traceback
-import json
 import os
 
 from comfy_api.latest import ComfyExtension, io
@@ -35,7 +34,7 @@ class NotebookCell(io.ComfyNode):
         """
         return io.Schema(
             node_id="NotebookCell",
-            display_name="Notebook Cell",
+            display_name="Notebook: Cell",
             category="notebook",
             inputs=[
                 io.String.Input(
@@ -267,16 +266,44 @@ class NotebookCell(io.ComfyNode):
         # Return with image output (always provided now)
         return io.NodeOutput(result, image_output, all_output, ui=ui_output)
 
+class NotebookForceRerun(io.ComfyNode):
+    """
+    A node that forces re-execution of downstream nodes, useful for debugging,
+    generating random data, or when you want a node to run every time regardless
+    of whether its other inputs have changed.
+    """
+    
+    @classmethod
+    def define_schema(cls) -> io.Schema:
+        return io.Schema(
+            node_id="NotebookForceRerun",
+            display_name="Notebook: Force Rerun",
+            category="notebook",
+            inputs=[],
+            outputs=[
+                io.AnyType.Output(display_name="Trigger"),
+            ],
+        )
+    
+    @classmethod
+    def IS_CHANGED(cls):
+        import time
+        return time.time()
+    
+    @classmethod
+    def execute(cls) -> io.NodeOutput:
+        return io.NodeOutput(True)
 
 class NotebookExtension(ComfyExtension):
     """
-    Extension class that registers the NotebookCell node.
+    Extension class that registers the Notebook nodes.
     """
     
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         return [
             NotebookCell,
+            NotebookForceRerun,
         ]
 
 
