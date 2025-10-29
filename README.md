@@ -1,6 +1,6 @@
 # Notebook - Python Exec Node for ComfyUI
 
-A Jupyter-style custom node for executing Python code within ComfyUI workflows.
+A Jupyter-style custom node for executing Python code within [ComfyUI](https://github.com/comfyanonymous/ComfyUI) workflows.
 
 ## Features
 
@@ -10,6 +10,8 @@ A Jupyter-style custom node for executing Python code within ComfyUI workflows.
 - Plot generation and dynamic outputs
 
 ## Installation
+
+Install [ComfyUI](https://github.com/comfyanonymous/ComfyUI).
 
 Clone `notebook` to `ComfyUI/custom_nodes/` and restart ComfyUI.
 
