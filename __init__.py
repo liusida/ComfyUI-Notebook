@@ -135,58 +135,59 @@ class NotebookCell(io.ComfyNode):
         old_stderr = sys.stderr
         
         try:
-            # Redirect stdout and stderr
-            sys.stdout = stdout_capture
-            sys.stderr = stderr_capture
-            
-            # Override print to capture to our stdout_capture
-            def custom_print(*args, **kwargs):
-                kwargs.setdefault('file', stdout_capture)
-                __builtins__['print'](*args, **kwargs)
-                old_stdout.write(' '.join(str(arg) for arg in args) + '\n')
-            
-            namespace['print'] = custom_print
-            
-            # Execute the code
-            try:
-                # Use compile to get better error messages
-                compiled_code = compile(code, '<string>', 'exec', flags=0)
-                exec(compiled_code, namespace)
+            with torch.inference_mode(False):
+                # Redirect stdout and stderr
+                sys.stdout = stdout_capture
+                sys.stderr = stderr_capture
                 
-                # Try to get the last expression result
-                # If the code ends with an expression (not just a statement), store it
-                lines = [line.strip() for line in code.strip().split('\n') if line.strip()]
-
-                # Find the last non-comment, non-statement line
-                last_line = None
-                for line in reversed(lines):
-                    if (line and 
-                        not line.startswith('#') and 
-                        not line.startswith('def ') and
-                        not line.startswith('class ') and
-                        not line.startswith('if ') and
-                        not line.startswith('for ') and
-                        not line.startswith('while ') and
-                        not line.startswith('with ') and
-                        not line.startswith('import ') and
-                        not line.endswith(':') and
-                        not line.startswith('print(')):
-                        last_line = line
-                        break
-
-                if last_line:
-                    # Try to evaluate the last non-comment line if it's an expression
-                    try:
-                        last_expr = compile(last_line, '<string>', 'eval')
-                        last_result = eval(last_expr, namespace)
-                        namespace['_result'] = last_result
-                    except:
-                        pass  # Last line is a statement, not an expression
+                # Override print to capture to our stdout_capture
+                def custom_print(*args, **kwargs):
+                    kwargs.setdefault('file', stdout_capture)
+                    __builtins__['print'](*args, **kwargs)
+                    old_stdout.write(' '.join(str(arg) for arg in args) + '\n')
+                
+                namespace['print'] = custom_print
+                
+                # Execute the code
+                try:
+                    # Use compile to get better error messages
+                    compiled_code = compile(code, '<string>', 'exec', flags=0)
+                    exec(compiled_code, namespace)
                     
-            except Exception as e:
-                # Format error with traceback
-                error_msg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
-                stderr_capture.write(error_msg)
+                    # Try to get the last expression result
+                    # If the code ends with an expression (not just a statement), store it
+                    lines = [line.strip() for line in code.strip().split('\n') if line.strip()]
+
+                    # Find the last non-comment, non-statement line
+                    last_line = None
+                    for line in reversed(lines):
+                        if (line and 
+                            not line.startswith('#') and 
+                            not line.startswith('def ') and
+                            not line.startswith('class ') and
+                            not line.startswith('if ') and
+                            not line.startswith('for ') and
+                            not line.startswith('while ') and
+                            not line.startswith('with ') and
+                            not line.startswith('import ') and
+                            not line.endswith(':') and
+                            not line.startswith('print(')):
+                            last_line = line
+                            break
+
+                    if last_line:
+                        # Try to evaluate the last non-comment line if it's an expression
+                        try:
+                            last_expr = compile(last_line, '<string>', 'eval')
+                            last_result = eval(last_expr, namespace)
+                            namespace['_result'] = last_result
+                        except:
+                            pass  # Last line is a statement, not an expression
+                        
+                except Exception as e:
+                    # Format error with traceback
+                    error_msg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    stderr_capture.write(error_msg)
                 
         finally:
             # Restore stdout and stderr
