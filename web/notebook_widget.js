@@ -42,7 +42,7 @@ function applyMonaco(textarea) {
         return;
     }
     
-    console.log("Applying Monaco Editor to textarea");
+    // console.log("Applying Monaco Editor to textarea");
     
     // Define custom theme with line number colors
     monaco.editor.defineTheme('notebook-theme', {
@@ -160,23 +160,39 @@ app.registerExtension({
     name: "ComfyUI.NotebookCell",
     
     async setup() {
-        console.log("NotebookCell extension setup");
+        // console.log("NotebookCell extension setup");
         await loadMonaco();
     },
     
     async nodeCreated(node) {
         if (node.comfyClass !== 'NotebookCell') return;
-        
-        // Wait for the UI to be fully rendered
-        setTimeout(() => {
-            const textareas = document.querySelectorAll('textarea.comfy-multiline-input[placeholder="code"]');
 
-            textareas.forEach((textarea) => {
-                if (!textarea.hasAttribute('data-monaco-applied')) {
-                    applyMonaco(textarea);
-                }
-            });
-        }, 100);
+        const widget = node.widgets?.find((w) => w.name === 'code' && (w.type === 'customtext' || w.type === 'MARKDOWN'));
+        if (!widget) return;
+        const ta = widget.inputEl || widget.element; // textarea element        
+
+        const tryMount = () => {
+            const wrapper = ta.closest('.dom-widget');
+            if (!wrapper) return;
+            applyMonaco(ta);
+            if (!wrapper._nb_ro) {
+                const ro = new ResizeObserver(() => {
+                    if (app.canvas?.low_quality) return; // skip while zoomed out
+                    // console.log("ResizeObserver triggered");
+                    applyMonaco(ta);
+                });
+                ro.observe(wrapper);
+                // console.log("ResizeObserver hooked up");
+                wrapper._nb_ro = ro;
+            }
+            return true;
+        }
+        let tries = 10;
+        const tick = () => {
+          if (tryMount() || --tries <= 0) return;
+          setTimeout(tick, 100*(10-tries));
+        };
+        tick();
     }
 });
 
