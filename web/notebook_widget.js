@@ -8,19 +8,19 @@ function loadMonaco() {
     if (monacoLoaded || typeof monaco !== 'undefined') {
         return Promise.resolve();
     }
-    
+
     monacoLoaded = true;
     console.log("Loading Monaco Editor...");
-    
+
     return new Promise((resolve) => {
         // Load Monaco loader
         const script = document.createElement('script');
         script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js';
         script.onload = () => {
-            require.config({ 
-                paths: { 
-                    vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' 
-                } 
+            require.config({
+                paths: {
+                    vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs'
+                }
             });
             require(['vs/editor/editor.main'], () => {
                 console.log("Monaco Editor loaded successfully");
@@ -36,14 +36,14 @@ function applyMonaco(textarea) {
     if (textarea.hasAttribute('data-monaco-applied')) {
         return;
     }
-    
+
     if (typeof monaco === 'undefined') {
         setTimeout(() => applyMonaco(textarea), 100);
         return;
     }
-    
+
     // console.log("Applying Monaco Editor to textarea");
-    
+
     // Define custom theme with line number colors
     monaco.editor.defineTheme('notebook-theme', {
         base: 'vs-dark',
@@ -56,13 +56,13 @@ function applyMonaco(textarea) {
     });
 
     const originalValue = textarea.value;
-    
+
     // Get the actual dimensions BEFORE hiding
     const rect = textarea.getBoundingClientRect();
     const originalStyle = window.getComputedStyle(textarea);
     const width = originalStyle.width;
     const height = originalStyle.height;
-    
+
     // Hide the textarea
     textarea.style.position = 'absolute';
     textarea.style.opacity = '0';
@@ -70,18 +70,18 @@ function applyMonaco(textarea) {
     textarea.style.height = '1px';
     textarea.style.pointerEvents = 'none';
     textarea.setAttribute('data-monaco-applied', 'true');
-    
+
     // Get the parent container
     const parentContainer = textarea.parentNode;
-    
+
     // Create a container for Monaco
     const editorContainer = document.createElement('div');
     editorContainer.style.width = width;
     editorContainer.style.height = height;
-    
+
     // Insert container after textarea
     parentContainer.insertBefore(editorContainer, textarea.nextSibling);
-    
+
     // Create Monaco Editor instance
     const editor = monaco.editor.create(editorContainer, {
         value: originalValue,
@@ -103,8 +103,8 @@ function applyMonaco(textarea) {
         glyphMargin: false,
         lineNumbersMinChars: 3,
     });
-    
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
+
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function () {
         // Manually trigger the keypress on the hidden textarea
         const event = new KeyboardEvent('keydown', {
             key: 'Enter',
@@ -117,17 +117,17 @@ function applyMonaco(textarea) {
     });
 
     console.log("Monaco Editor applied successfully");
-    
+
     // Sync changes back to textarea
     editor.onDidChangeModelContent(() => {
         textarea.value = editor.getValue();
         const inputEvent = new Event('input', { bubbles: true });
         textarea.dispatchEvent(inputEvent);
-        
+
         const changeEvent = new Event('change', { bubbles: true });
         textarea.dispatchEvent(changeEvent);
     });
-    
+
     // Listen for external value changes
     const observer = new MutationObserver(() => {
         const newValue = textarea.value;
@@ -135,21 +135,21 @@ function applyMonaco(textarea) {
             editor.setValue(newValue);
         }
     });
-    
-    observer.observe(textarea, { 
-        attributes: true, 
-        attributeFilter: ['value'] 
+
+    observer.observe(textarea, {
+        attributes: true,
+        attributeFilter: ['value']
     });
-    
+
     // Watch for node resizing
     const resizeObserver = new ResizeObserver(() => {
         // Get current dimensions from the parent container
         editorContainer.style.width = parentContainer.style.width;
         editorContainer.style.height = parentContainer.style.height;
     });
-    
+
     resizeObserver.observe(parentContainer);
-    
+
     // Store reference
     textarea.editor = editor;
     textarea.editorContainer = editorContainer;
@@ -158,12 +158,12 @@ function applyMonaco(textarea) {
 // Setup extension
 app.registerExtension({
     name: "ComfyUI.NotebookCell",
-    
+
     async setup() {
         // console.log("NotebookCell extension setup");
         await loadMonaco();
     },
-    
+
     async nodeCreated(node) {
         if (node.comfyClass !== 'NotebookCell') return;
 
@@ -189,8 +189,8 @@ app.registerExtension({
         }
         let tries = 10;
         const tick = () => {
-          if (tryMount() || --tries <= 0) return;
-          setTimeout(tick, 100*(10-tries));
+            if (tryMount() || --tries <= 0) return;
+            setTimeout(tick, 100 * (10 - tries));
         };
         tick();
     }
