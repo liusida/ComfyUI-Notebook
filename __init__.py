@@ -233,6 +233,7 @@ class NotebookCell(io.ComfyNode):
                     buf.seek(0)
                     pil_image = PILImage.open(buf)
                     plt.close(fig)
+                    plt.close('all')
                     import torch
                     import numpy as np
                     img_array = np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
