@@ -96,7 +96,11 @@ class NotebookCell(io.ComfyNode):
         
         try:
             import torch
+            import torch.nn as nn
+            import torch.nn.functional as F
             namespace["torch"] = torch
+            namespace["nn"] = nn
+            namespace["F"] = F
         except ImportError:
             pass
         
