@@ -17,7 +17,7 @@ _NOTEBOOK_GLOBALS = {}
 class NotebookCell(io.ComfyNode):
     """
     A Jupyter-notebook-style cell for executing Python code.
-    
+
     Features:
     - Multiline textarea with syntax highlighting
     - Captures stdout/stderr output
@@ -26,7 +26,7 @@ class NotebookCell(io.ComfyNode):
     - Optional input to receive data from another cell
     - Dynamic variable previews
     """
-    
+
     @classmethod
     def define_schema(cls) -> io.Schema:
         """
@@ -36,6 +36,7 @@ class NotebookCell(io.ComfyNode):
             node_id="NotebookCell",
             display_name="Notebook: Cell",
             category="notebook",
+            is_output_node=True,
             inputs=[
                 io.String.Input(
                     "code",
@@ -52,7 +53,7 @@ class NotebookCell(io.ComfyNode):
                     "input_2",
                     optional=True,
                     tooltip="Optional extra input. Access via 'input_2' variable.",
-                ),                
+                ),
             ],
             outputs=[
                 io.AnyType.Output(display_name="Result"),
@@ -60,22 +61,22 @@ class NotebookCell(io.ComfyNode):
                 io.String.Output(display_name="Stdout"),
             ],
         )
-    
+
     @classmethod
     def execute(cls, code: str, input=None, input_2=None) -> io.NodeOutput:
         """
         Execute the provided Python code and return the results.
-        
+
         Args:
             code: The Python code to execute
             input: Optional input from connected nodes
-            
+
         Returns:
             NodeOutput with captured stdout/stderr and execution results
         """
         if not code or not code.strip():
             return io.NodeOutput("")
-        
+
         # Create a custom namespace with common imports
         namespace = {
             "__builtins__": __builtins__,
@@ -85,39 +86,43 @@ class NotebookCell(io.ComfyNode):
             "input_2": input_2,  # Make input available to the code
             "globals": _NOTEBOOK_GLOBALS,  # Global variables shared between cells
         }
-        
+
         # Add common libraries to namespace
         try:
             import numpy as np
+
             namespace["np"] = np
             namespace["numpy"] = np
         except ImportError:
             pass
-        
+
         try:
             import torch
             import torch.nn as nn
             import torch.nn.functional as F
+
             namespace["torch"] = torch
             namespace["nn"] = nn
             namespace["F"] = F
         except ImportError:
             pass
-        
+
         try:
             import PIL.Image as Image
+
             namespace["Image"] = Image
             namespace["PIL"] = __import__("PIL")
         except ImportError:
             pass
-        
+
         try:
             import matplotlib
-            matplotlib.use('Agg')  # Use non-interactive backend
+
+            matplotlib.use("Agg")  # Use non-interactive backend
             import matplotlib.pyplot as plt
             from io import BytesIO
             from PIL import Image
-            
+
             # Make plt.show() a no-op like in Jupyter notebook
             def custom_show(*args, **kwargs):
                 """No-op like Jupyter notebook. Figure will be auto-captured at the end."""
@@ -126,82 +131,90 @@ class NotebookCell(io.ComfyNode):
             plt.show = custom_show
             namespace["plt"] = plt
             namespace["matplotlib"] = matplotlib
-            
+
         except ImportError:
             pass
-        
+
         # Capture stdout and stderr
         stdout_capture = io_module.StringIO()
         stderr_capture = io_module.StringIO()
-        
+
         # Store original stdout/stderr
         old_stdout = sys.stdout
         old_stderr = sys.stderr
-        
+
         try:
             with torch.inference_mode(False):
                 # Redirect stdout and stderr
                 sys.stdout = stdout_capture
                 sys.stderr = stderr_capture
-                
+
                 # Override print to capture to our stdout_capture
                 def custom_print(*args, **kwargs):
-                    kwargs.setdefault('file', stdout_capture)
-                    __builtins__['print'](*args, **kwargs)
-                    old_stdout.write(' '.join(str(arg) for arg in args) + '\n')
-                
-                namespace['print'] = custom_print
-                
+                    kwargs.setdefault("file", stdout_capture)
+                    __builtins__["print"](*args, **kwargs)
+                    old_stdout.write(" ".join(str(arg) for arg in args) + "\n")
+
+                namespace["print"] = custom_print
+
                 # Execute the code
                 try:
                     # Use compile to get better error messages
-                    compiled_code = compile(code, '<string>', 'exec', flags=0)
+                    compiled_code = compile(code, "<string>", "exec", flags=0)
                     exec(compiled_code, namespace)
-                    
+
                     # Try to get the last expression result
                     # If the code ends with an expression (not just a statement), store it
-                    lines = [line.strip() for line in code.strip().split('\n') if line.strip()]
+                    lines = [
+                        line.strip()
+                        for line in code.strip().split("\n")
+                        if line.strip()
+                    ]
 
                     # Find the last non-comment, non-statement line
                     last_line = None
                     for line in reversed(lines):
-                        if (line and 
-                            not line.startswith('#') and 
-                            not line.startswith('def ') and
-                            not line.startswith('class ') and
-                            not line.startswith('if ') and
-                            not line.startswith('for ') and
-                            not line.startswith('while ') and
-                            not line.startswith('with ') and
-                            not line.startswith('import ') and
-                            not line.endswith(':') and
-                            not line.startswith('print(')):
+                        if (
+                            line
+                            and not line.startswith("#")
+                            and not line.startswith("def ")
+                            and not line.startswith("class ")
+                            and not line.startswith("if ")
+                            and not line.startswith("for ")
+                            and not line.startswith("while ")
+                            and not line.startswith("with ")
+                            and not line.startswith("import ")
+                            and not line.endswith(":")
+                            and not line.startswith("print(")
+                        ):
                             last_line = line
                             break
 
                     if last_line:
                         # Try to evaluate the last non-comment line if it's an expression
                         try:
-                            last_expr = compile(last_line, '<string>', 'eval')
+                            last_expr = compile(last_line, "<string>", "eval")
                             last_result = eval(last_expr, namespace)
-                            namespace['_result'] = last_result
+                            namespace["_result"] = last_result
                         except:
                             pass  # Last line is a statement, not an expression
-                        
+
                 except Exception as e:
                     # Format error with traceback
-                    error_msg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                    error_msg = "".join(
+                        traceback.format_exception(type(e), e, e.__traceback__)
+                    )
                     stderr_capture.write(error_msg)
-                
+
         finally:
             # Restore stdout and stderr
             sys.stdout = old_stdout
             sys.stderr = old_stderr
-        
+
         # Get captured output
         stdout_output = stdout_capture.getvalue()
         stderr_output = stderr_capture.getvalue()
-        
+
         # Combine outputs
         all_output = ""
         if stdout_output:
@@ -210,17 +223,17 @@ class NotebookCell(io.ComfyNode):
             if all_output:
                 all_output += "\n"
             all_output += "[ERROR]\n" + stderr_output
-        
+
         # Get result from namespace (only get once)
-        result = namespace.get('_result', None)
-        
+        result = namespace.get("_result", None)
+
         image_output = None
         # Auto-capture matplotlib figures at the end (like Jupyter does)
         try:
             import matplotlib.pyplot as plt
             from PIL import Image as PILImage
             from io import BytesIO
-            
+
             # Check if there's a current figure with plots
             fig = plt.gcf()
             if fig.get_axes():
@@ -230,47 +243,52 @@ class NotebookCell(io.ComfyNode):
                     if ax.lines or ax.patches or ax.collections or ax.images:
                         has_data = True
                         break
-                
+
                 if has_data:
                     buf = BytesIO()
-                    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+                    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
                     buf.seek(0)
                     pil_image = PILImage.open(buf)
                     plt.close(fig)
-                    plt.close('all')
+                    plt.close("all")
                     import torch
                     import numpy as np
-                    img_array = np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
+
+                    img_array = (
+                        np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
+                    )
                     image_output = torch.from_numpy(img_array)[None,]
 
         except:
             pass
-        
+
         # Create a default 1x1 pixel image if no image output
         if image_output is None:
             try:
                 import torch
+
                 # Create a 1x1 white pixel image (RGB)
                 image_output = torch.ones((1, 1, 1, 3), dtype=torch.float32)
             except:
                 pass
-        
+
         # For non-dict results, display normally
-        if result is not None and str(result) != 'None':
+        if result is not None and str(result) != "None":
             try:
                 all_output += str(result)
             except:
                 all_output += repr(result)
-        
+
         # Clean up the output
         if not all_output:
             all_output = "[No output]"
-        
+
         # Create UI output to display the results
         ui_output = {"text": (all_output,)}
-        
+
         # Return with image output (always provided now)
         return io.NodeOutput(result, image_output, all_output, ui=ui_output)
+
 
 class NotebookForceRerun(io.ComfyNode):
     """
@@ -278,7 +296,7 @@ class NotebookForceRerun(io.ComfyNode):
     generating random data, or when you want a node to run every time regardless
     of whether its other inputs have changed.
     """
-    
+
     @classmethod
     def define_schema(cls) -> io.Schema:
         return io.Schema(
@@ -290,21 +308,23 @@ class NotebookForceRerun(io.ComfyNode):
                 io.AnyType.Output(display_name="Trigger"),
             ],
         )
-    
+
     @classmethod
     def IS_CHANGED(cls):
         import time
+
         return time.time()
-    
+
     @classmethod
     def execute(cls) -> io.NodeOutput:
         return io.NodeOutput(True)
+
 
 class NotebookExtension(ComfyExtension):
     """
     Extension class that registers the Notebook nodes.
     """
-    
+
     @override
     async def get_node_list(self) -> list[type[io.ComfyNode]]:
         return [
@@ -319,4 +339,3 @@ async def comfy_entrypoint() -> NotebookExtension:
     This function is called by ComfyUI to discover and load the custom nodes.
     """
     return NotebookExtension()
-
