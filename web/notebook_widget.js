@@ -1,5 +1,6 @@
 // Monaco Editor integration for notebook cells with syntax highlighting
 import { app } from "../../../scripts/app.js";
+import { ComfyWidgets } from "../../../scripts/widgets.js";
 
 let monacoLoaded = false;
 
@@ -193,6 +194,66 @@ app.registerExtension({
             setTimeout(tick, 100 * (10 - tries));
         };
         tick();
-    }
+
+        // Find Stdout output slot index
+        const stdoutIndex = node.findOutputSlot('Stdout');
+
+        // Store original onConnectionsChange if it exists
+        const originalOnConnectionsChange = node.onConnectionsChange;
+
+        // Listen for connection changes
+        node.onConnectionsChange = (slotType, slotIndex, connected, link, slot) => {
+            // Call original callback if it exists
+            if (originalOnConnectionsChange) {
+                originalOnConnectionsChange.call(node, slotType, slotIndex, connected, link, slot);
+            }
+
+            // Check if this is the Stdout output slot
+            if (slotType === 2 && link.origin_slot === stdoutIndex) { // 2 = NodeSlotType.OUTPUT, slotIndex is not correct, use link.origin_slot instead
+                const outputWidget = node.widgets?.find((w) => w.name === 'Output');
+                if (connected) {
+                    console.log('Stdout output connected!', link, slot);
+                    outputWidget.hidden = true;
+                } else {
+                    console.log('Stdout output disconnected!', link, slot);
+                    outputWidget.hidden = false;
+                }
+            }
+        };
+    },
+
+    async beforeRegisterNodeDef(nodeType, nodeData) {
+        if (nodeData.name !== 'NotebookCell') return;
+
+        // Hook into onNodeCreated to add output widget
+        const onNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            if (onNodeCreated) onNodeCreated.apply(this, []);
+
+            // Add output textarea widget
+            const outputWidget = ComfyWidgets['STRING'](
+                this,
+                'Output',
+                ['STRING', { multiline: true }],
+                app
+            ).widget;
+            outputWidget.element.readOnly = true;
+            outputWidget.serialize = false;
+            outputWidget.options.getMinHeight = () => outputWidget.hidden ? 0 : 50;
+            outputWidget.options.getMaxHeight = () => outputWidget.hidden ? 0 : 50;
+        };
+
+        // Hook into onExecuted to update output widget
+        const onExecuted = nodeType.prototype.onExecuted;
+        nodeType.prototype.onExecuted = function (message) {
+            if (onExecuted) onExecuted.apply(this, [message]);
+
+            const outputWidget = this.widgets?.find((w) => w.name === 'Output');
+            if (outputWidget && message.text && message.text[0]) {
+                outputWidget.value = message.text[0];
+            }
+        };
+
+    },
 });
 
