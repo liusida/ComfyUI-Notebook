@@ -1,11 +1,11 @@
 from typing_extensions import override
 import io as io_module
 import sys
-import traceback
 import os
 import torch
 import numpy as np
-
+import server
+from aiohttp import web
 from comfy_api.latest import ComfyExtension, io
 
 # Set web directory for frontend extensions
@@ -14,49 +14,46 @@ WEB_DIRECTORY = os.path.join(os.path.dirname(__file__), "web")
 
 # Global dictionary for sharing variables between notebook cells
 _NOTEBOOK_GLOBALS = {}
-try:
-    import numpy as np
 
-    _NOTEBOOK_GLOBALS["np"] = np
-    _NOTEBOOK_GLOBALS["numpy"] = np
-except ImportError:
-    pass
+
+# Add API route
+@server.PromptServer.instance.routes.post("/notebook/clear_ns")
+async def clear_notebook_namespace(request):
+    _NOTEBOOK_GLOBALS.clear()
+    print("Cleared notebook namespace")
+    return web.json_response({"status": "ok"})
+
 
 try:
     import torch.nn as nn
     import torch.nn.functional as F
-
-    _NOTEBOOK_GLOBALS["torch"] = torch
-    _NOTEBOOK_GLOBALS["nn"] = nn
-    _NOTEBOOK_GLOBALS["F"] = F
-except ImportError:
-    pass
-
-try:
     import PIL.Image as Image
 
-    _NOTEBOOK_GLOBALS["Image"] = Image
-    _NOTEBOOK_GLOBALS["PIL"] = __import__("PIL")
-except ImportError:
-    pass
+    preload_modules = {
+        "np": np,
+        "numpy": np,
+        "torch": torch,
+        "nn": nn,
+        "F": F,
+        "Image": Image,
+    }
 
-try:
     import matplotlib
+    import matplotlib.pyplot as plt
 
     matplotlib.use("Agg")  # Use non-interactive backend
-    import matplotlib.pyplot as plt
-    from io import BytesIO
-    from PIL import Image
+    preload_modules.update(
+        {
+            "matplotlib": matplotlib,
+            "plt": plt,
+        }
+    )
 
-    # Make plt.show() a no-op like in Jupyter notebook
     def custom_show(*args, **kwargs):
         """No-op like Jupyter notebook. Figure will be auto-captured at the end."""
         pass
 
     plt.show = custom_show
-    _NOTEBOOK_GLOBALS["plt"] = plt
-    _NOTEBOOK_GLOBALS["matplotlib"] = matplotlib
-
 except ImportError:
     pass
 
@@ -129,14 +126,35 @@ class NotebookCell(io.ComfyNode):
                 "Result": None,  # Make Result available to the code
             }
         )
+        _NOTEBOOK_GLOBALS.update(preload_modules)
 
         # Capture stdout and stderr
         stdout_capture = io_module.StringIO()
         # Store original stdout/stderr
         old_stdout = sys.stdout
+
+        class TeeOutput:
+            """Write to both original stdout and capture buffer"""
+
+            def __init__(self, original, capture):
+                self.original = original
+                self.capture = capture
+
+            def write(self, text):
+                self.original.write(text)
+                self.capture.write(text)
+
+            def flush(self):
+                self.original.flush()
+                self.capture.flush()
+
+            def __getattr__(self, name):
+                # Delegate any other attributes to original stdout
+                return getattr(self.original, name)
+
         try:
             with torch.inference_mode(False):  # Counter ComfyUI's inference mode
-                sys.stdout = stdout_capture
+                sys.stdout = TeeOutput(old_stdout, stdout_capture)
                 compiled_code = compile(code, "<string>", "exec", flags=0)
                 exec(compiled_code, _NOTEBOOK_GLOBALS)
         finally:

@@ -212,10 +212,10 @@ app.registerExtension({
             if (slotType === 2 && link.origin_slot === stdoutIndex) { // 2 = NodeSlotType.OUTPUT, slotIndex is not correct, use link.origin_slot instead
                 const outputWidget = node.widgets?.find((w) => w.name === 'Output');
                 if (connected) {
-                    console.log('Stdout output connected!', link, slot);
+                    // console.log('Stdout output connected!', link, slot);
                     outputWidget.hidden = true;
                 } else {
-                    console.log('Stdout output disconnected!', link, slot);
+                    // console.log('Stdout output disconnected!', link, slot);
                     outputWidget.hidden = false;
                 }
             }
