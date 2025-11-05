@@ -3,6 +3,8 @@ import io as io_module
 import sys
 import traceback
 import os
+import torch
+import numpy as np
 
 from comfy_api.latest import ComfyExtension, io
 
@@ -12,6 +14,51 @@ WEB_DIRECTORY = os.path.join(os.path.dirname(__file__), "web")
 
 # Global dictionary for sharing variables between notebook cells
 _NOTEBOOK_GLOBALS = {}
+try:
+    import numpy as np
+
+    _NOTEBOOK_GLOBALS["np"] = np
+    _NOTEBOOK_GLOBALS["numpy"] = np
+except ImportError:
+    pass
+
+try:
+    import torch.nn as nn
+    import torch.nn.functional as F
+
+    _NOTEBOOK_GLOBALS["torch"] = torch
+    _NOTEBOOK_GLOBALS["nn"] = nn
+    _NOTEBOOK_GLOBALS["F"] = F
+except ImportError:
+    pass
+
+try:
+    import PIL.Image as Image
+
+    _NOTEBOOK_GLOBALS["Image"] = Image
+    _NOTEBOOK_GLOBALS["PIL"] = __import__("PIL")
+except ImportError:
+    pass
+
+try:
+    import matplotlib
+
+    matplotlib.use("Agg")  # Use non-interactive backend
+    import matplotlib.pyplot as plt
+    from io import BytesIO
+    from PIL import Image
+
+    # Make plt.show() a no-op like in Jupyter notebook
+    def custom_show(*args, **kwargs):
+        """No-op like Jupyter notebook. Figure will be auto-captured at the end."""
+        pass
+
+    plt.show = custom_show
+    _NOTEBOOK_GLOBALS["plt"] = plt
+    _NOTEBOOK_GLOBALS["matplotlib"] = matplotlib
+
+except ImportError:
+    pass
 
 
 class NotebookCell(io.ComfyNode):
@@ -74,158 +121,33 @@ class NotebookCell(io.ComfyNode):
         Returns:
             NodeOutput with captured stdout/stderr and execution results
         """
-        if not code or not code.strip():
-            return io.NodeOutput("")
-
         # Create a custom namespace with common imports
-        namespace = {
-            "__builtins__": __builtins__,
-            "__name__": "__main__",
-            "print": print,  # Will be overridden to capture output
-            "input": input,  # Make input available to the code
-            "input_2": input_2,  # Make input available to the code
-            "globals": _NOTEBOOK_GLOBALS,  # Global variables shared between cells
-        }
-
-        # Add common libraries to namespace
-        try:
-            import numpy as np
-
-            namespace["np"] = np
-            namespace["numpy"] = np
-        except ImportError:
-            pass
-
-        try:
-            import torch
-            import torch.nn as nn
-            import torch.nn.functional as F
-
-            namespace["torch"] = torch
-            namespace["nn"] = nn
-            namespace["F"] = F
-        except ImportError:
-            pass
-
-        try:
-            import PIL.Image as Image
-
-            namespace["Image"] = Image
-            namespace["PIL"] = __import__("PIL")
-        except ImportError:
-            pass
-
-        try:
-            import matplotlib
-
-            matplotlib.use("Agg")  # Use non-interactive backend
-            import matplotlib.pyplot as plt
-            from io import BytesIO
-            from PIL import Image
-
-            # Make plt.show() a no-op like in Jupyter notebook
-            def custom_show(*args, **kwargs):
-                """No-op like Jupyter notebook. Figure will be auto-captured at the end."""
-                pass
-
-            plt.show = custom_show
-            namespace["plt"] = plt
-            namespace["matplotlib"] = matplotlib
-
-        except ImportError:
-            pass
+        _NOTEBOOK_GLOBALS.update(
+            {
+                "input": input,  # Make input available to the code
+                "input_2": input_2,  # Make input available to the code
+                "Result": None,  # Make Result available to the code
+            }
+        )
 
         # Capture stdout and stderr
         stdout_capture = io_module.StringIO()
-        stderr_capture = io_module.StringIO()
-
         # Store original stdout/stderr
         old_stdout = sys.stdout
-        old_stderr = sys.stderr
-
         try:
-            with torch.inference_mode(False):
-                # Redirect stdout and stderr
+            with torch.inference_mode(False):  # Counter ComfyUI's inference mode
                 sys.stdout = stdout_capture
-                sys.stderr = stderr_capture
-
-                # Override print to capture to our stdout_capture
-                def custom_print(*args, **kwargs):
-                    kwargs.setdefault("file", stdout_capture)
-                    __builtins__["print"](*args, **kwargs)
-                    old_stdout.write(" ".join(str(arg) for arg in args) + "\n")
-
-                namespace["print"] = custom_print
-
-                # Execute the code
-                try:
-                    # Use compile to get better error messages
-                    compiled_code = compile(code, "<string>", "exec", flags=0)
-                    exec(compiled_code, namespace)
-
-                    # Try to get the last expression result
-                    # If the code ends with an expression (not just a statement), store it
-                    lines = [
-                        line.strip()
-                        for line in code.strip().split("\n")
-                        if line.strip()
-                    ]
-
-                    # Find the last non-comment, non-statement line
-                    last_line = None
-                    for line in reversed(lines):
-                        if (
-                            line
-                            and not line.startswith("#")
-                            and not line.startswith("def ")
-                            and not line.startswith("class ")
-                            and not line.startswith("if ")
-                            and not line.startswith("for ")
-                            and not line.startswith("while ")
-                            and not line.startswith("with ")
-                            and not line.startswith("import ")
-                            and not line.endswith(":")
-                            and not line.startswith("print(")
-                        ):
-                            last_line = line
-                            break
-
-                    if last_line:
-                        # Try to evaluate the last non-comment line if it's an expression
-                        try:
-                            last_expr = compile(last_line, "<string>", "eval")
-                            last_result = eval(last_expr, namespace)
-                            namespace["_result"] = last_result
-                        except:
-                            pass  # Last line is a statement, not an expression
-
-                except Exception as e:
-                    # Format error with traceback
-                    error_msg = "".join(
-                        traceback.format_exception(type(e), e, e.__traceback__)
-                    )
-                    stderr_capture.write(error_msg)
-
+                compiled_code = compile(code, "<string>", "exec", flags=0)
+                exec(compiled_code, _NOTEBOOK_GLOBALS)
         finally:
             # Restore stdout and stderr
             sys.stdout = old_stdout
-            sys.stderr = old_stderr
-
         # Get captured output
         stdout_output = stdout_capture.getvalue()
-        stderr_output = stderr_capture.getvalue()
-
         # Combine outputs
         all_output = ""
         if stdout_output:
             all_output += stdout_output
-        if stderr_output:
-            if all_output:
-                all_output += "\n"
-            all_output += "[ERROR]\n" + stderr_output
-
-        # Get result from namespace (only get once)
-        result = namespace.get("_result", None)
 
         image_output = None
         # Auto-capture matplotlib figures at the end (like Jupyter does)
@@ -251,8 +173,6 @@ class NotebookCell(io.ComfyNode):
                     pil_image = PILImage.open(buf)
                     plt.close(fig)
                     plt.close("all")
-                    import torch
-                    import numpy as np
 
                     img_array = (
                         np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
@@ -264,20 +184,14 @@ class NotebookCell(io.ComfyNode):
 
         # Create a default 1x1 pixel image if no image output
         if image_output is None:
-            try:
-                import torch
+            # Create a 1x1 white pixel image (RGB)
+            image_output = torch.ones((1, 1, 1, 3), dtype=torch.float32)
 
-                # Create a 1x1 white pixel image (RGB)
-                image_output = torch.ones((1, 1, 1, 3), dtype=torch.float32)
-            except:
-                pass
-
-        # For non-dict results, display normally
+        # Display `Result`
+        result = _NOTEBOOK_GLOBALS.get("Result", None)
         if result is not None and str(result) != "None":
-            try:
-                all_output += str(result)
-            except:
-                all_output += repr(result)
+            all_output += "[Result]\n"
+            all_output += str(result)
 
         # Clean up the output
         if not all_output:
@@ -286,7 +200,7 @@ class NotebookCell(io.ComfyNode):
         # Create UI output to display the results
         ui_output = {"text": (all_output,)}
 
-        # Return with image output (always provided now)
+        # return three slots: Result, Plot, Stdout
         return io.NodeOutput(result, image_output, all_output, ui=ui_output)
 
 
