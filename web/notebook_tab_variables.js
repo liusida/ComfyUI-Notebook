@@ -11,6 +11,8 @@ app.registerExtension({
       targetPanel: 'terminal',
       render: (container) => {
         container.style.padding = '20px';
+        container.style.height = '100%';
+        container.style.overflowY = 'auto';
 
         const refreshButton = document.createElement('button');
         const clearButton = document.createElement('button');
@@ -51,6 +53,7 @@ app.registerExtension({
 
         container.innerHTML = '<h2>Notebook Variables</h2><p>Click Refresh to load variables</p>';
         container.appendChild(refreshButton);
+        container.appendChild(clearButton);
         refreshButton.onclick();
       },
       destroy: () => { }
