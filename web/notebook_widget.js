@@ -3,7 +3,9 @@ import { app } from "../../../scripts/app.js";
 import { ComfyWidgets } from "../../../scripts/widgets.js";
 
 let monacoLoaded = false;
-
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 // Load Monaco Editor
 function loadMonaco() {
     if (monacoLoaded || typeof monaco !== 'undefined') {
@@ -33,7 +35,8 @@ function loadMonaco() {
 }
 
 // Apply Monaco Editor to textarea
-function applyMonaco(textarea) {
+async function applyMonaco(textarea) {
+    await sleep(100);
     if (textarea.hasAttribute('data-monaco-applied')) {
         return;
     }
@@ -82,6 +85,7 @@ function applyMonaco(textarea) {
 
     // Insert container after textarea
     parentContainer.insertBefore(editorContainer, textarea.nextSibling);
+    // console.log("Editor container created");
 
     // Create Monaco Editor instance
     const editor = monaco.editor.create(editorContainer, {
@@ -117,7 +121,7 @@ function applyMonaco(textarea) {
         textarea.dispatchEvent(event);
     });
 
-    console.log("Monaco Editor applied successfully");
+    // console.log("Monaco Editor applied successfully");
 
     // Sync changes back to textarea
     editor.onDidChangeModelContent(() => {
