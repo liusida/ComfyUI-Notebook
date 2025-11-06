@@ -4,8 +4,6 @@ import sys
 import os
 import torch
 import numpy as np
-import server
-from aiohttp import web
 from comfy_api.latest import ComfyExtension, io
 
 # Set web directory for frontend extensions
@@ -14,68 +12,12 @@ WEB_DIRECTORY = os.path.join(os.path.dirname(__file__), "web")
 
 # Global dictionary for sharing variables between notebook cells
 _NOTEBOOK_GLOBALS = {}
-
-
-# Add API route
-@server.PromptServer.instance.routes.post("/notebook/clear_ns")
-async def clear_notebook_namespace(request):
-    _NOTEBOOK_GLOBALS.clear()
-    print("Cleared notebook namespace")
-    return web.json_response({"status": "ok"})
-
-
-try:
-    import torch.nn as nn
-    import torch.nn.functional as F
-    import PIL.Image as Image
-
-    preload_modules = {
-        "np": np,
-        "numpy": np,
-        "torch": torch,
-        "nn": nn,
-        "F": F,
-        "Image": Image,
-    }
-
-    import matplotlib
-    import matplotlib.pyplot as plt
-
-    matplotlib.use("Agg")  # Use non-interactive backend
-    preload_modules.update(
-        {
-            "matplotlib": matplotlib,
-            "plt": plt,
-        }
-    )
-
-    def custom_show(*args, **kwargs):
-        """No-op like Jupyter notebook. Figure will be auto-captured at the end."""
-        pass
-
-    plt.show = custom_show
-except ImportError:
-    pass
+_PRELOAD_MODULES = {}
 
 
 class NotebookCell(io.ComfyNode):
-    """
-    A Jupyter-notebook-style cell for executing Python code.
-
-    Features:
-    - Multiline textarea with syntax highlighting
-    - Captures stdout/stderr output
-    - Access to common libraries (numpy, torch, matplotlib, etc.)
-    - Returns execution results as strings or images
-    - Optional input to receive data from another cell
-    - Dynamic variable previews
-    """
-
     @classmethod
     def define_schema(cls) -> io.Schema:
-        """
-        Define the node schema with a multiline textarea for Python code.
-        """
         return io.Schema(
             node_id="NotebookCell",
             display_name="Notebook: Cell",
@@ -108,16 +50,6 @@ class NotebookCell(io.ComfyNode):
 
     @classmethod
     def execute(cls, code: str, input=None, input_2=None) -> io.NodeOutput:
-        """
-        Execute the provided Python code and return the results.
-
-        Args:
-            code: The Python code to execute
-            input: Optional input from connected nodes
-
-        Returns:
-            NodeOutput with captured stdout/stderr and execution results
-        """
         # Create a custom namespace with common imports
         _NOTEBOOK_GLOBALS.update(
             {
@@ -126,7 +58,7 @@ class NotebookCell(io.ComfyNode):
                 "Result": None,  # Make Result available to the code
             }
         )
-        _NOTEBOOK_GLOBALS.update(preload_modules)
+        _NOTEBOOK_GLOBALS.update(_PRELOAD_MODULES)
 
         # Capture stdout and stderr
         stdout_capture = io_module.StringIO()
@@ -270,4 +202,45 @@ async def comfy_entrypoint() -> NotebookExtension:
     ComfyUI entrypoint to load the notebook extension.
     This function is called by ComfyUI to discover and load the custom nodes.
     """
+
+    try:
+        import torch.nn as nn
+        import torch.nn.functional as F
+        import PIL.Image as Image
+
+        _PRELOAD_MODULES.update(
+            {
+                "np": np,
+                "numpy": np,
+                "torch": torch,
+                "nn": nn,
+                "F": F,
+                "Image": Image,
+            }
+        )
+
+        import matplotlib
+        import matplotlib.pyplot as plt
+
+        matplotlib.use("Agg")  # Use non-interactive backend
+        _PRELOAD_MODULES.update(
+            {
+                "matplotlib": matplotlib,
+                "plt": plt,
+            }
+        )
+
+        def custom_show(*args, **kwargs):
+            """No-op like Jupyter notebook. Figure will be auto-captured at the end."""
+            pass
+
+        plt.show = custom_show
+    except ImportError:
+        pass
+
+    # Register API routes after globals are defined
+    from . import notebook_apis
+
+    notebook_apis.register_routes(_NOTEBOOK_GLOBALS, _PRELOAD_MODULES)
+
     return NotebookExtension()
