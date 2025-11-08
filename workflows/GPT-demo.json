@@ -24,6 +24,12 @@
           "shape": 7,
           "type": "*",
           "link": 3
+        },
+        {
+          "name": "input_2",
+          "shape": 7,
+          "type": "*",
+          "link": null
         }
       ],
       "outputs": [
@@ -38,7 +44,7 @@
           "links": null
         },
         {
-          "name": "Output",
+          "name": "Stdout",
           "type": "STRING",
           "links": [
             4
@@ -49,7 +55,8 @@
         "Node name for S&R": "NotebookCell"
       },
       "widgets_values": [
-        "model, tokenizer = input\nmodel"
+        "print(model)",
+        "GPT2LMHeadModel(\n  (transformer): GPT2Model(\n    (wte): Embedding(50257, 768)\n    (wpe): Embedding(1024, 768)\n    (drop): Dropout(p=0.1, inplace=False)\n    (h): ModuleList(\n      (0-11): 12 x GPT2Block(\n        (ln_1): LayerNorm((768,), eps=1e-05, elementwise_affine=True)\n        (attn): GPT2Attention(\n          (c_attn): Conv1D(nf=2304, nx=768)\n          (c_proj): Conv1D(nf=768, nx=768)\n          (attn_dropout): Dropout(p=0.1, inplace=False)\n          (resid_dropout): Dropout(p=0.1, inplace=False)\n        )\n        (ln_2): LayerNorm((768,), eps=1e-05, elementwise_affine=True)\n        (mlp): GPT2MLP(\n          (c_fc): Conv1D(nf=3072, nx=768)\n          (c_proj): Conv1D(nf=768, nx=3072)\n          (act): NewGELUActivation()\n          (dropout): Dropout(p=0.1, inplace=False)\n        )\n      )\n    )\n    (ln_f): LayerNorm((768,), eps=1e-05, elementwise_affine=True)\n  )\n  (lm_head): Linear(in_features=768, out_features=50257, bias=False)\n)\n"
       ]
     },
     {
@@ -99,6 +106,12 @@
           "shape": 7,
           "type": "*",
           "link": 2
+        },
+        {
+          "name": "input_2",
+          "shape": 7,
+          "type": "*",
+          "link": null
         }
       ],
       "outputs": [
@@ -113,7 +126,7 @@
           "links": null
         },
         {
-          "name": "Output",
+          "name": "Stdout",
           "type": "STRING",
           "links": [
             1
@@ -124,7 +137,8 @@
         "Node name for S&R": "NotebookCell"
       },
       "widgets_values": [
-        "model, tokenizer = input\n\n# Encode input text\ninputs = tokenizer(\"Hello,\", return_tensors=\"pt\")\n\n# Generate output\noutputs = model.generate(**inputs, max_new_tokens=20)\n\n# Decode and print\nprint(tokenizer.decode(outputs[0], skip_special_tokens=True))\n"
+        "\n# Encode input text\ninputs = tokenizer(\"Hello,\", return_tensors=\"pt\")\n\n# Generate output\noutputs = model.generate(**inputs, max_new_tokens=20)\n\n# Decode and print\nprint(tokenizer.decode(outputs[0], skip_special_tokens=True))\n",
+        "Hello, I'm sorry, but I'm not sure if you're aware of this. I'm not sure\n"
       ]
     },
     {
@@ -182,56 +196,6 @@
       "widgets_values": []
     },
     {
-      "id": 3,
-      "type": "NotebookCell",
-      "pos": [
-        -388.9431320821989,
-        -774.5915767467831
-      ],
-      "size": [
-        704.6999729996243,
-        255.09640344724357
-      ],
-      "flags": {},
-      "order": 0,
-      "mode": 0,
-      "inputs": [
-        {
-          "name": "input",
-          "shape": 7,
-          "type": "*",
-          "link": null
-        }
-      ],
-      "outputs": [
-        {
-          "name": "Result",
-          "type": "*",
-          "links": [
-            2,
-            3,
-            5
-          ]
-        },
-        {
-          "name": "Plot",
-          "type": "IMAGE",
-          "links": null
-        },
-        {
-          "name": "Output",
-          "type": "STRING",
-          "links": null
-        }
-      ],
-      "properties": {
-        "Node name for S&R": "NotebookCell"
-      },
-      "widgets_values": [
-        "from transformers import GPT2Tokenizer, GPT2LMHeadModel\n\n# Load tokenizer and model\ntokenizer = GPT2Tokenizer.from_pretrained(\"gpt2\")       # \"gpt2\" = 124M\nmodel = GPT2LMHeadModel.from_pretrained(\"gpt2\")\n\nmodel, tokenizer"
-      ]
-    },
-    {
       "id": 6,
       "type": "NotebookCell",
       "pos": [
@@ -251,6 +215,12 @@
           "shape": 7,
           "type": "*",
           "link": 5
+        },
+        {
+          "name": "input_2",
+          "shape": 7,
+          "type": "*",
+          "link": null
         }
       ],
       "outputs": [
@@ -267,7 +237,7 @@
           ]
         },
         {
-          "name": "Output",
+          "name": "Stdout",
           "type": "STRING",
           "links": [
             6
@@ -278,7 +248,8 @@
         "Node name for S&R": "NotebookCell"
       },
       "widgets_values": [
-        "model, tokenizer = input\n\nimage = model.transformer.wte.weight.data.detach().cpu().numpy()\nplt.figure(figsize=[16,9])\nplt.imshow(image[:100,:200])"
+        "\nimage = model.transformer.wte.weight.data.detach().cpu().numpy()\nplt.figure(figsize=[16,9])\nplt.imshow(image[:100,:200])",
+        "[No output]"
       ]
     },
     {
@@ -307,6 +278,63 @@
         "Node name for S&R": "PreviewImage"
       },
       "widgets_values": []
+    },
+    {
+      "id": 3,
+      "type": "NotebookCell",
+      "pos": [
+        -388.9431320821989,
+        -774.5915767467831
+      ],
+      "size": [
+        682.8817911814424,
+        314.18731253815264
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "input",
+          "shape": 7,
+          "type": "*",
+          "link": null
+        },
+        {
+          "name": "input_2",
+          "shape": 7,
+          "type": "*",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Result",
+          "type": "*",
+          "links": [
+            2,
+            3,
+            5
+          ]
+        },
+        {
+          "name": "Plot",
+          "type": "IMAGE",
+          "links": null
+        },
+        {
+          "name": "Stdout",
+          "type": "STRING",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "NotebookCell"
+      },
+      "widgets_values": [
+        "from transformers import GPT2Tokenizer, GPT2LMHeadModel\n\n# Load tokenizer and model\ntokenizer = GPT2Tokenizer.from_pretrained(\"gpt2\")       # \"gpt2\" = 124M\nmodel = GPT2LMHeadModel.from_pretrained(\"gpt2\")\n\n",
+        "[No output]"
+      ]
     }
   ],
   "links": [
@@ -371,10 +399,10 @@
   "config": {},
   "extra": {
     "ds": {
-      "scale": 1.1,
+      "scale": 0.8264462809917354,
       "offset": [
-        446.43236545238165,
-        878.6012545162263
+        500.6479626295712,
+        871.7661056222997
       ]
     },
     "frontendVersion": "1.28.7"

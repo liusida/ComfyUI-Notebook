@@ -4,10 +4,10 @@ A Jupyter-style custom node for executing Python code within [ComfyUI](https://g
 
 ## Features
 
-- Syntax highlighting with Monaco Editor (similar to VSCode)
-- Shared variables between cells via `globals` dictionary
-- Pre-loaded: numpy, torch, PIL, matplotlib
-- Plot generation and dynamic outputs
+-   Syntax highlighting with Monaco Editor (similar to VSCode)
+-   Shared variables between cells via `globals` dictionary
+-   Pre-loaded: numpy, torch, PIL, matplotlib
+-   Plot generation and dynamic outputs
 
 ## Installation
 
@@ -18,14 +18,15 @@ Clone `notebook` to `ComfyUI/custom_nodes/` and restart ComfyUI.
 ## Usage Examples
 
 **Basic execution:**
+
 ```python
-x = 1 + 1
-x
+print(1 + 1)
 ```
 
 ![1+1](./img/simple.png)
 
 **Plotting:**
+
 ```python
 plt.figure(figsize=[8,5])
 x = torch.randn([2,10])
@@ -34,27 +35,40 @@ plt.scatter(x[0], x[1])
 
 ![random](./img/random.png)
 
-**Sharing data between cells and creating plots:**
+**Sharing Data Between Cells:**
+
 ```python
 # Cell 1
 x = np.linspace(0, 10, 100)
-globals['data_sine'] = x
 
 # Cell 2
 plt.figure(figsize=[5,6])
-x = globals['data_sine']
 plt.plot(x, np.sin(x))
 plt.title("Sine")
 ```
 
 ![sine](./img/sine.png)
 
+**Passing Results:**
 
-**Redirecting stdout and stderror:**
+```python
+# Cell 1
+x = "Hello, results!"
+y = 2
+Result = x, y
+
+# Cell 2
+x, _ = input
+print(x)
+```
+
+![results](./img/passing_result.png)
+
+**Highlighted the Problematic Cell:**
 
 ![bug](./img/bug.png)
 
-**Investigating GPT-2's weights:**
+**Investigating GPT-2's Weights:**
 
 ![gpt](./img/gpt.png)
 
@@ -62,10 +76,8 @@ plt.title("Sine")
 
 ## Available Variables
 
-- `globals` - Shared dictionary (persists across executions)
-- `np`, `torch`, `Image`, `plt` - Common libraries pre-loaded
+-   `np`, `torch`, `Image`, `plt` - Common libraries pre-loaded
 
 ## License
 
 MIT License
-
