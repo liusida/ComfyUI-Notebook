@@ -214,7 +214,7 @@ app.registerExtension({
 
             // Check if this is the Stdout output slot
             if (slotType === 2 && link.origin_slot === stdoutIndex) { // 2 = NodeSlotType.OUTPUT, slotIndex is not correct, use link.origin_slot instead
-                const outputWidget = node.widgets?.find((w) => w.name === 'Output');
+                const outputWidget = node.widgets?.find((w) => w.name === 'No Preview');
                 if (connected) {
                     // console.log('Stdout output connected!', link, slot);
                     outputWidget.hidden = true;
@@ -237,12 +237,12 @@ app.registerExtension({
             // Add output textarea widget
             const outputWidget = ComfyWidgets['STRING'](
                 this,
-                'Output',
+                'No Preview',
                 ['STRING', { multiline: true }],
                 app
             ).widget;
             outputWidget.element.readOnly = true;
-            outputWidget.serialize = false;
+            outputWidget.serializeValue = () => ''; // Prevent serialization of the output widget
             outputWidget.options.getMinHeight = () => outputWidget.hidden ? 0 : 50;
             outputWidget.options.getMaxHeight = () => outputWidget.hidden ? 0 : 50;
         };
@@ -252,12 +252,11 @@ app.registerExtension({
         nodeType.prototype.onExecuted = function (message) {
             if (onExecuted) onExecuted.apply(this, [message]);
 
-            const outputWidget = this.widgets?.find((w) => w.name === 'Output');
+            const outputWidget = this.widgets?.find((w) => w.name === 'No Preview');
             if (outputWidget && message.text && message.text[0]) {
                 outputWidget.value = message.text[0];
             }
         };
-
     },
 });
 
