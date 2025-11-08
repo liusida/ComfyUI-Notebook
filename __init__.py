@@ -137,11 +137,11 @@ class NotebookCell(io.ComfyNode):
             # Create a 1x1 white pixel image (RGB)
             image_output = torch.ones((1, 1, 1, 3), dtype=torch.float32)
 
-        # Display `Result`
         result = _NOTEBOOK_GLOBALS.get("Result", None)
-        if result is not None and str(result) != "None":
-            all_output += "[Result]\n"
-            all_output += str(result)
+        # # Display `Result`
+        # if result is not None and str(result) != "None":
+        #     all_output += "[Result]\n"
+        #     all_output += str(result)
 
         # Clean up the output
         if not all_output:
