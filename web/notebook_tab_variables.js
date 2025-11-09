@@ -16,7 +16,8 @@ app.registerExtension({
 
         const refreshButton = document.createElement('button');
         const clearButton = document.createElement('button');
-        clearButton.textContent = 'Clear Variables and Free Memory';
+        const copyAllButton = document.createElement('button');
+        clearButton.textContent = '🗑️ Clear Variables and Free Memory';
         clearButton.style.marginLeft = '100px';
         clearButton.onclick = async () => {
           try {
@@ -28,7 +29,67 @@ app.registerExtension({
           }
           refreshButton.onclick();
         };
-        refreshButton.textContent = 'Refresh';
+
+        copyAllButton.textContent = '📋 Copy All Cells Code [Left to Right]';
+        copyAllButton.style.marginLeft = '100px';
+        copyAllButton.onclick = () => {
+          try {
+            // Get the current graph
+            const graph = app.graph;
+            if (!graph || !graph._nodes) {
+              alert('No graph found');
+              return;
+            }
+
+            // Find all NotebookCell nodes
+            const notebookCells = graph._nodes.filter(node => node.comfyClass === 'NotebookCell');
+
+            if (notebookCells.length === 0) {
+              alert('No Notebook Cells found in the workflow');
+              return;
+            }
+
+            // Sort cells by position: top to bottom, then left to right
+            notebookCells.sort((a, b) => {
+              const aY = a.pos ? a.pos[1] : 0;
+              const bY = b.pos ? b.pos[1] : 0;
+              if (aY !== bY) {
+                return aY - bY; // Sort by Y (top to bottom)
+              }
+              const aX = a.pos ? a.pos[0] : 0;
+              const bX = b.pos ? b.pos[0] : 0;
+              return aX - bX; // Then by X (left to right)
+            });
+
+            // Extract code from each cell
+            const allCode = notebookCells.map((node, index) => {
+              const codeWidget = node.widgets?.find(w => w.name === 'code');
+              if (codeWidget?.disabled) { return ''; }
+              let cellName = node.getTitle ? node.getTitle() : node.title;
+              if (cellName == "Notebook: Cell") { cellName = `${index + 1}`; }
+              const code = codeWidget?.value || '';
+              return `# Cell: ${cellName}\n${code}`;
+            }).join('\n\n');
+
+            // Copy to clipboard
+            navigator.clipboard.writeText(allCode).then(() => {
+              // Show feedback
+              const originalText = copyAllButton.textContent;
+              copyAllButton.textContent = '✅ Copied!';
+              setTimeout(() => {
+                copyAllButton.textContent = originalText;
+              }, 2000);
+            }).catch(err => {
+              console.error('Failed to copy:', err);
+              alert('Failed to copy code to clipboard');
+            });
+          } catch (error) {
+            console.error('Error copying code:', error);
+            alert(`Error: ${error.message}`);
+          }
+        };
+
+        refreshButton.textContent = '🔄 Refresh';
         refreshButton.onclick = async () => {
           try {
             const response = await api.fetchApi('/notebook/list_variables', { method: 'GET' });
@@ -46,6 +107,7 @@ app.registerExtension({
             container.innerHTML = '<h2>Notebook Variables</h2>' + html;
             container.appendChild(refreshButton);
             container.appendChild(clearButton);
+            container.appendChild(copyAllButton);
           } catch (error) {
             container.innerHTML = `<p>Error: ${error.message}</p>`;
           }
@@ -54,6 +116,7 @@ app.registerExtension({
         container.innerHTML = '<h2>Notebook Variables</h2><p>Click Refresh to load variables</p>';
         container.appendChild(refreshButton);
         container.appendChild(clearButton);
+        container.appendChild(copyAllButton);
         refreshButton.onclick();
       },
       destroy: () => { }
