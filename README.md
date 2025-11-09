@@ -13,7 +13,7 @@ A Jupyter-style custom node for executing Python code within [ComfyUI](https://g
 
 Install [ComfyUI](https://github.com/comfyanonymous/ComfyUI).
 
-Clone `notebook` to `ComfyUI/custom_nodes/` and restart ComfyUI.
+Clone `ComfyUI-Notebook` (this repo) to `ComfyUI/custom_nodes/` and restart ComfyUI.
 
 ## Usage Examples
 
