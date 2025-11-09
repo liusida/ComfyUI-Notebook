@@ -118,7 +118,7 @@ async function applyMonaco(textarea) {
             bubbles: true,
             cancelable: true
         });
-        textarea.dispatchEvent(event);
+        window.dispatchEvent(event);
     });
 
     // console.log("Monaco Editor applied successfully");
