@@ -64,6 +64,10 @@ print(x)
 
 ![results](./img/passing_result.png)
 
+**Output/Preview HTML:**
+
+![html](./img/preview_html.png)
+
 **Highlighted the Problematic Cell:**
 
 ![bug](./img/bug.png)
