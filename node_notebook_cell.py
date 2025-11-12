@@ -4,6 +4,7 @@ import torch
 import numpy as np
 from comfy_api.latest import io
 
+
 # Import globals from __init__.py
 # These are defined in __init__.py and shared across notebook cells
 # Access via sys.modules to avoid circular import issues
@@ -13,12 +14,10 @@ def _get_notebook_globals():
     package_name = __package__
     if package_name:
         init_module = sys.modules.get(package_name)
-        if init_module and hasattr(init_module, '_NOTEBOOK_GLOBALS'):
+        if init_module and hasattr(init_module, "_NOTEBOOK_GLOBALS"):
             return init_module._NOTEBOOK_GLOBALS, init_module._PRELOAD_MODULES
     # Fallback: create new dicts if import fails (shouldn't happen in normal usage)
     return {}, {}
-
-_NOTEBOOK_GLOBALS, _PRELOAD_MODULES = _get_notebook_globals()
 
 
 class NotebookCell(io.ComfyNode):
@@ -56,6 +55,9 @@ class NotebookCell(io.ComfyNode):
 
     @classmethod
     def execute(cls, code: str, input=None, input_2=None) -> io.NodeOutput:
+
+        _NOTEBOOK_GLOBALS, _PRELOAD_MODULES = _get_notebook_globals()
+
         # Create a custom namespace with common imports
         _NOTEBOOK_GLOBALS.update(
             {
@@ -158,4 +160,3 @@ class NotebookCell(io.ComfyNode):
 
         # return three slots: Result, Plot, Stdout
         return io.NodeOutput(result, image_output, all_output, ui=ui_output)
-
