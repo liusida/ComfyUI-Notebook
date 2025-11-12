@@ -213,14 +213,22 @@ app.registerExtension({
             }
 
             // Check if this is the Stdout output slot
-            if (slotType === 2 && link.origin_slot === stdoutIndex) { // 2 = NodeSlotType.OUTPUT, slotIndex is not correct, use link.origin_slot instead
+            if (slotType === 2 && link.origin_slot === stdoutIndex) { // 2 = NodeSlotType.OUTPUT
                 const outputWidget = node.widgets?.find((w) => w.name === 'No Preview');
+                if (!outputWidget) return;
+
                 if (connected) {
-                    // console.log('Stdout output connected!', link, slot);
+                    // When a link is connected, hide the widget
                     outputWidget.hidden = true;
                 } else {
-                    // console.log('Stdout output disconnected!', link, slot);
-                    outputWidget.hidden = false;
+                    // When a link is disconnected, check if there are any remaining links
+                    // Only show the widget if there are no remaining connections
+                    const hasRemainingLinks = node.outputs &&
+                        node.outputs[stdoutIndex] &&
+                        node.outputs[stdoutIndex].links &&
+                        node.outputs[stdoutIndex].links.length > 0;
+
+                    outputWidget.hidden = hasRemainingLinks;
                 }
             }
         };
