@@ -48,32 +48,63 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== 'PreviewHTML') return;
 
-        // Hook into onNodeCreated to add HTML container
+        // Define minimum size for the HTML preview area
+        const MIN_WIDTH = 300;
+        const MIN_HEIGHT = 200;
+
+        // Override computeSize to enforce minimum size
+        const originalComputeSize = nodeType.prototype.computeSize;
+        nodeType.prototype.computeSize = function (out) {
+            // Call original computeSize first
+            const size = originalComputeSize ? originalComputeSize.call(this, out) : [MIN_WIDTH, MIN_HEIGHT];
+
+            // Enforce minimum size
+            const width = Math.max(size[0] || 0, MIN_WIDTH);
+            const height = Math.max(size[1] || 0, MIN_HEIGHT);
+
+            return [width, height];
+        };
+
+        // Hook into onNodeCreated to add HTML container and set default size
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             if (onNodeCreated) onNodeCreated.apply(this, []);
+
+            // Set a default minimum size for the node to accommodate HTML preview
+            const currentSize = this.size || this.computeSize?.() || [MIN_WIDTH, MIN_HEIGHT];
+            const newWidth = Math.max(currentSize[0] || 0, MIN_WIDTH);
+            const newHeight = Math.max(currentSize[1] || 0, MIN_HEIGHT);
+
+            // Set the node size
+            if (this.setSize) {
+                this.setSize([newWidth, newHeight]);
+            } else if (this.size) {
+                this.size = [newWidth, newHeight];
+            }
 
             // Create a container div for HTML rendering
             const htmlContainer = document.createElement('div');
             htmlContainer.className = 'preview-html-container';
             htmlContainer.style.cssText = `
-                margin-top: 8px;
-                padding: 12px;
-                border: 1px solid var(--border-color, #444);
-                border-radius: 4px;
-                background: var(--comfy-input-bg, #1e1e1e);
-                min-height: 100px;
-                max-height: 600px;
-                overflow-y: auto;
-                overflow-x: hidden;
-            `;
+                                        margin-top: 0px;
+                                        padding: 12px;
+                                        border: 1px solid var(--border-color, #444);
+                                        border-radius: 4px;
+                                        background: var(--comfy-input-bg, #1e1e1e);
+                                        min-height: 100px;
+                                        overflow-y: auto;
+                                        overflow-x: hidden;
+                                    `;
 
             // Use addDOMWidget with proper parameters: name, type, element
             // The type 'html' is a custom type for our HTML preview widget
+            // Include getMinHeight to contribute to minimum size calculation
             try {
                 if (this.addDOMWidget && typeof this.addDOMWidget === 'function') {
                     this.addDOMWidget('htmlPreview', 'html', htmlContainer, {
                         serializeValue: () => '', // Don't serialize the HTML content
+                        getMinHeight: () => MIN_HEIGHT - 100, // Account for node header/padding
+                        getMinWidth: () => MIN_WIDTH - 50, // Account for node padding
                     });
                 } else {
                     console.warn('PreviewHTML: addDOMWidget not available, using fallback');
