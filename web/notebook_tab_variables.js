@@ -49,20 +49,23 @@ app.registerExtension({
               return;
             }
 
-            // Sort cells by position: top to bottom, then left to right
+            // Sort cells by position: left to right, then top to bottom
             notebookCells.sort((a, b) => {
-              const aY = a.pos ? a.pos[1] : 0;
-              const bY = b.pos ? b.pos[1] : 0;
-              if (aY !== bY) {
-                return aY - bY; // Sort by Y (top to bottom)
-              }
               const aX = a.pos ? a.pos[0] : 0;
               const bX = b.pos ? b.pos[0] : 0;
-              return aX - bX; // Then by X (left to right)
+              if (aX !== bX) {
+                return aX - bX; // Sort by X (left to right)
+              }
+              const aY = a.pos ? a.pos[1] : 0;
+              const bY = b.pos ? b.pos[1] : 0;
+              return aY - bY; // Then by Y (top to bottom)
             });
 
             // Extract code from each cell
             const allCode = notebookCells.map((node, index) => {
+              // Skip disabled or bypassed nodes
+              if (node.mode === 2 || node.mode === 4) { return ''; }
+
               const codeWidget = node.widgets?.find(w => w.name === 'code');
               if (codeWidget?.disabled) { return ''; }
               let cellName = node.getTitle ? node.getTitle() : node.title;
