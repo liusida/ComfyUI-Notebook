@@ -17,7 +17,8 @@ class PreviewHTML(io.ComfyNode):
             is_output_node=True,
             inputs=[
                 io.AnyType.Input(
-                    "html_input",
+                    "html",
+                    optional=True,
                     tooltip="HTML content, circuitsvis RenderedHTML object, or any object with _repr_html_() or __html__() method",
                 ),
             ],
@@ -27,7 +28,7 @@ class PreviewHTML(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, html_input) -> io.NodeOutput:
+    def execute(cls, html=None) -> io.NodeOutput:
         """
         Extract HTML string from input and return it for frontend rendering.
 
@@ -39,26 +40,30 @@ class PreviewHTML(io.ComfyNode):
         """
         html_str = None
 
-        try:
-            # Try _repr_html_() first (Jupyter/Colab style)
-            if hasattr(html_input, "_repr_html_") and callable(html_input._repr_html_):
-                html_str = html_input._repr_html_()
-            # Try __html__() as alternative
-            elif hasattr(html_input, "__html__") and callable(html_input.__html__):
-                html_str = html_input.__html__()
-            # If it's already a string, use it directly
-            elif isinstance(html_input, str):
-                html_str = html_input
-            # Fallback: convert to string
-            else:
-                html_str = str(html_input)
-        except Exception as e:
-            # If extraction fails, show error message
-            html_str = f'<div style="padding: 10px; color: #ff6b6b; background: #2d1b1b; border-radius: 4px;"><strong>Error extracting HTML:</strong> {str(e)}</div>'
+        # Handle case when input is not connected (optional=True)
+        if html is None:
+            html_str = "<div />"
+        else:
+            try:
+                # Try _repr_html_() first (Jupyter/Colab style)
+                if hasattr(html, "_repr_html_") and callable(html._repr_html_):
+                    html_str = html._repr_html_()
+                # Try __html__() as alternative
+                elif hasattr(html, "__html__") and callable(html.__html__):
+                    html_str = html.__html__()
+                # If it's already a string, use it directly
+                elif isinstance(html, str):
+                    html_str = html
+                # Fallback: convert to string
+                else:
+                    html_str = str(html)
+            except Exception as e:
+                # If extraction fails, show error message
+                html_str = f'<div style="padding: 10px; color: #ff6b6b; background: #2d1b1b; border-radius: 4px;"><strong>Error extracting HTML:</strong> {str(e)}</div>'
 
         # Ensure we have a valid string
         if html_str is None:
-            html_str = '<div style="padding: 10px; color: #888;">No HTML content to display</div>'
+            html_str = "<div />"
 
         # Return HTML in UI message for frontend rendering
         ui_output = {"html": (html_str,)}
