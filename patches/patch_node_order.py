@@ -12,9 +12,12 @@ with importlib.resources.as_file(
     json.dump(
         {
             "NotebookCell": 9999,
-            "PreviewAny": 9998,
+            "PreviewHTML": 9998,
+            "PreviewAny": 9997,
             **{
-                k: v for k, v in data.items() if k not in ("NotebookCell", "PreviewAny")
+                k: v
+                for k, v in data.items()
+                if k not in ("NotebookCell", "PreviewHTML", "PreviewAny")
             },
         },
         open(str(f), "w", encoding="utf-8"),
