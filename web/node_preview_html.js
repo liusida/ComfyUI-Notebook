@@ -105,6 +105,7 @@ app.registerExtension({
                         serializeValue: () => '', // Don't serialize the HTML content
                         getMinHeight: () => MIN_HEIGHT - 100, // Account for node header/padding
                         getMinWidth: () => MIN_WIDTH - 50, // Account for node padding
+                        hideOnZoom: false,
                     });
                 } else {
                     console.warn('PreviewHTML: addDOMWidget not available, using fallback');
