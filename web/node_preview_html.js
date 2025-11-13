@@ -49,7 +49,7 @@ app.registerExtension({
         if (nodeData.name !== 'PreviewHTML') return;
 
         // Define minimum size for the HTML preview area
-        const MIN_WIDTH = 300;
+        const MIN_WIDTH = 400;
         const MIN_HEIGHT = 200;
 
         // Override computeSize to enforce minimum size
