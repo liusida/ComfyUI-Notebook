@@ -174,6 +174,7 @@ app.registerExtension({
 
         const widget = node.widgets?.find((w) => w.name === 'code' && (w.type === 'customtext' || w.type === 'MARKDOWN'));
         if (!widget) return;
+        if (widget.options) widget.options.hideOnZoom = false;
         const ta = widget.inputEl || widget.element; // textarea element        
 
         const tryMount = () => {
