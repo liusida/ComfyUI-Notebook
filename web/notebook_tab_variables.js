@@ -71,7 +71,7 @@ app.registerExtension({
               let cellName = node.getTitle ? node.getTitle() : node.title;
               if (cellName == "Notebook: Cell") { cellName = `${index + 1}`; }
               const code = codeWidget?.value || '';
-              return `# Cell: ${cellName}\n${code}`;
+              return `#### Cell: ${cellName} ####\n${code}`;
             }).join('\n\n');
 
             // Copy to clipboard
