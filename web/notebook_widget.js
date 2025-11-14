@@ -200,6 +200,16 @@ app.registerExtension({
         };
         tick();
 
+        // Add click handler to retry applying Monaco if it's not applied
+        ta.addEventListener('click', () => {
+            if (!ta.editor || !ta.hasAttribute('data-monaco-applied')) {
+                if (ta.hasAttribute('data-monaco-applied')) {
+                    ta.removeAttribute('data-monaco-applied');
+                }
+                applyMonaco(ta);
+            }
+        });
+
         // Find Stdout output slot index
         const stdoutIndex = node.findOutputSlot('Stdout');
 
