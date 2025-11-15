@@ -1,3 +1,5 @@
+temp_notebook_cells/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,6 +1,8 @@
 import server
 import types
 import inspect
+import os
+import shutil
 from aiohttp import web
 
 
@@ -46,3 +48,14 @@ def register_routes(_NOTEBOOK_GLOBALS, _PRELOAD_MODULES):
         return web.json_response(
             {"status": "ok", "count": len(variables), "variables": variables}
         )
+
+    @server.PromptServer.instance.routes.post("/notebook/clear_temp_files")
+    async def clear_temp_files(request):
+        temp_dir = os.path.join(os.path.dirname(__file__), "temp_notebook_cells")
+        try:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+            os.makedirs(temp_dir, exist_ok=True)
+            return web.json_response({"status": "ok"})
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=500)

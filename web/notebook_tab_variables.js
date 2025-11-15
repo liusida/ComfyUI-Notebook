@@ -16,9 +16,12 @@ app.registerExtension({
 
         const refreshButton = document.createElement('button');
         const clearButton = document.createElement('button');
+        const clearTempButton = document.createElement('button');
         const copyAllButton = document.createElement('button');
         clearButton.textContent = '🗑️ Clear Variables and Free Memory';
         clearButton.style.marginLeft = '100px';
+        clearTempButton.textContent = '🗑️ Clear Temp Files';
+        clearTempButton.style.marginLeft = '100px';
         clearButton.onclick = async () => {
           try {
             const response = await api.fetchApi('/notebook/free', { method: 'POST' });
@@ -28,6 +31,21 @@ app.registerExtension({
             container.innerHTML = `<p>Error: ${error.message}</p>`;
           }
           refreshButton.onclick();
+        };
+
+        clearTempButton.onclick = async () => {
+          try {
+            const response = await api.fetchApi('/notebook/clear_temp_files', { method: 'POST' });
+            const data = await response.json();
+            console.log(data);
+            const originalText = clearTempButton.textContent;
+            clearTempButton.textContent = '✅ Cleared!';
+            setTimeout(() => {
+              clearTempButton.textContent = originalText;
+            }, 2000);
+          } catch (error) {
+            alert(`Error: ${error.message}`);
+          }
         };
 
         copyAllButton.textContent = '📋 Copy All Cells Code [Left to Right]';
@@ -110,6 +128,7 @@ app.registerExtension({
             container.innerHTML = '<h2>Notebook Variables</h2>' + html;
             container.appendChild(refreshButton);
             container.appendChild(clearButton);
+            container.appendChild(clearTempButton);
             container.appendChild(copyAllButton);
           } catch (error) {
             container.innerHTML = `<p>Error: ${error.message}</p>`;
@@ -119,6 +138,7 @@ app.registerExtension({
         container.innerHTML = '<h2>Notebook Variables</h2><p>Click Refresh to load variables</p>';
         container.appendChild(refreshButton);
         container.appendChild(clearButton);
+        container.appendChild(clearTempButton);
         container.appendChild(copyAllButton);
         refreshButton.onclick();
       },
