@@ -3,6 +3,7 @@ import { app } from "../../../scripts/app.js";
 import { ComfyWidgets } from "../../../scripts/widgets.js";
 
 let monacoLoaded = false;
+let monacoThemeDefined = false;
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -26,6 +27,18 @@ function loadMonaco() {
                 }
             });
             require(['vs/editor/editor.main'], () => {
+                if (!monacoThemeDefined) {
+                    monaco.editor.defineTheme('notebook-theme', {
+                        base: 'vs-dark',
+                        inherit: true,
+                        rules: [],
+                        colors: {
+                            'editorLineNumber.foreground': '#333333',
+                            'editorLineNumber.activeForeground': '#444444'
+                        }
+                    });
+                    monacoThemeDefined = true;
+                }
                 console.log("Monaco Editor loaded successfully");
                 resolve();
             });
@@ -48,16 +61,18 @@ async function applyMonaco(textarea) {
 
     // console.log("Applying Monaco Editor to textarea");
 
-    // Define custom theme with line number colors
-    monaco.editor.defineTheme('notebook-theme', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [],
-        colors: {
-            'editorLineNumber.foreground': '#333333',  // Normal line number color
-            'editorLineNumber.activeForeground': '#444444'  // Active line number color
-        }
-    });
+    if (!monacoThemeDefined) {
+        monaco.editor.defineTheme('notebook-theme', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [],
+            colors: {
+                'editorLineNumber.foreground': '#333333',
+                'editorLineNumber.activeForeground': '#444444'
+            }
+        });
+        monacoThemeDefined = true;
+    }
 
     const originalValue = textarea.value;
 
@@ -177,6 +192,16 @@ app.registerExtension({
         if (widget.options) widget.options.hideOnZoom = false;
         const ta = widget.inputEl || widget.element; // textarea element        
 
+        const ensureResizeObserver = (wrapper) => {
+            if (wrapper._nb_ro) return;
+            const ro = new ResizeObserver(() => {
+                if (app.canvas?.low_quality) return;
+                applyMonaco(ta);
+            });
+            ro.observe(wrapper);
+            wrapper._nb_ro = ro;
+        };
+
         const ensureAttachmentObserver = () => {
             if (ta._nb_attachment_observer) return;
             const target = node?.el || document.body;
@@ -186,14 +211,7 @@ app.registerExtension({
                 observer.disconnect();
                 ta._nb_attachment_observer = null;
                 applyMonaco(ta);
-                if (!wrapper._nb_ro) {
-                    const ro = new ResizeObserver(() => {
-                        if (app.canvas?.low_quality) return;
-                        applyMonaco(ta);
-                    });
-                    ro.observe(wrapper);
-                    wrapper._nb_ro = ro;
-                }
+                ensureResizeObserver(wrapper);
             });
             observer.observe(target, { childList: true, subtree: true });
             ta._nb_attachment_observer = observer;
@@ -210,16 +228,7 @@ app.registerExtension({
                 ta._nb_attachment_observer.disconnect();
                 ta._nb_attachment_observer = null;
             }
-            if (!wrapper._nb_ro) {
-                const ro = new ResizeObserver(() => {
-                    if (app.canvas?.low_quality) return; // skip while zoomed out
-                    // console.log("ResizeObserver triggered");
-                    applyMonaco(ta);
-                });
-                ro.observe(wrapper);
-                // console.log("ResizeObserver hooked up");
-                wrapper._nb_ro = ro;
-            }
+            ensureResizeObserver(wrapper);
             return true;
         }
         let tries = 10;
@@ -372,25 +381,16 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== 'NotebookCell') return;
 
-        // Initialize output height preference
         const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             if (originalOnNodeCreated) originalOnNodeCreated.apply(this, []);
             if (this.outputHeight === undefined) this.outputHeight = 50;
-        };
 
-        // Hook into onNodeCreated to add output widget
-        const onNodeCreated = nodeType.prototype.onNodeCreated;
-        nodeType.prototype.onNodeCreated = function () {
-            if (onNodeCreated) onNodeCreated.apply(this, []);
-
-            // Make code widget flexible
             const codeWidget = this.widgets?.find((w) => w.name === 'code');
             if (codeWidget?.options) {
                 codeWidget.options.getMaxHeight = () => undefined;
             }
 
-            // Add output textarea widget
             const outputWidget = ComfyWidgets['STRING'](
                 this,
                 'No Preview',
@@ -398,7 +398,7 @@ app.registerExtension({
                 app
             ).widget;
             outputWidget.element.readOnly = true;
-            outputWidget.serializeValue = () => ''; // Prevent serialization of the output widget
+            outputWidget.serializeValue = () => '';
             const height = () => this.outputHeight || 50;
             outputWidget.options.getMinHeight = () => outputWidget.hidden ? 0 : height();
             outputWidget.options.getMaxHeight = () => outputWidget.hidden ? 0 : height();
