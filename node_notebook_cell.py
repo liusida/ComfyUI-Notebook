@@ -2,7 +2,10 @@ import io as io_module
 import sys
 import torch
 import numpy as np
+import threading
 from comfy_api.latest import io
+from comfy_api_nodes.util._helpers import is_processing_interrupted
+from comfy_api_nodes.util.common_exceptions import ProcessingInterrupted
 
 
 class TeeOutput:
@@ -174,8 +177,82 @@ class NotebookCell(io.ComfyNode):
             module = importlib.util.module_from_spec(spec)
             module.__dict__.update(_NOTEBOOK_GLOBALS)
 
-            with torch.inference_mode(False):  # Counter ComfyUI's inference mode
-                spec.loader.exec_module(module)
+            # Execute in a separate thread to allow interrupt checking
+            execution_result = {"exception": None}
+            execution_event = threading.Event()
+            interrupt_flag = threading.Event()
+
+            def trace_interrupt(frame, event, arg):
+                if interrupt_flag.is_set():
+                    raise ProcessingInterrupted("Code execution interrupted by user")
+                return trace_interrupt
+
+            def execute_in_thread():
+                try:
+                    old_trace = sys.gettrace()
+                    sys.settrace(trace_interrupt)
+                    try:
+                        with torch.inference_mode(False):  # Counter ComfyUI's mode
+                            spec.loader.exec_module(module)
+                    finally:
+                        sys.settrace(old_trace)
+                except Exception as e:
+                    execution_result["exception"] = e
+                finally:
+                    execution_event.set()
+
+            exec_thread = threading.Thread(target=execute_in_thread, daemon=True)
+            exec_thread.start()
+
+            last_output_length = 0
+            # Monitor thread and check for interrupts
+            while not execution_event.wait(timeout=0.1):
+                # Sync stdout to GUI periodically
+                current_output = stdout_capture.getvalue()
+                if len(current_output) > last_output_length:
+                    try:
+                        import server
+
+                        if server.PromptServer.instance and context:
+                            display_node_id = (
+                                cls.hidden.unique_id
+                                if hasattr(cls.hidden, "unique_id")
+                                else context.node_id
+                            )
+                            ui_output = {"text": (current_output,)}
+                            server.PromptServer.instance.send_sync(
+                                "executed",
+                                {
+                                    "node": context.node_id,
+                                    "display_node": display_node_id,
+                                    "output": ui_output,
+                                    "prompt_id": context.prompt_id,
+                                },
+                                server.PromptServer.instance.client_id,
+                            )
+                    except Exception:
+                        pass  # Ignore errors in UI updates
+                    last_output_length = len(current_output)
+
+                if is_processing_interrupted():
+                    interrupt_flag.set()
+                    ui_output = {
+                        "text": (current_output + "\n[Execution interrupted by user]",)
+                    }
+                    server.PromptServer.instance.send_sync(
+                        "executed",
+                        {
+                            "node": context.node_id,
+                            "display_node": display_node_id,
+                            "output": ui_output,
+                            "prompt_id": context.prompt_id,
+                        },
+                        server.PromptServer.instance.client_id,
+                    )
+                    raise ProcessingInterrupted("Code execution interrupted by user")
+
+            if execution_result["exception"]:
+                raise execution_result["exception"]
 
             keys_to_exclude = {
                 "__name__",
