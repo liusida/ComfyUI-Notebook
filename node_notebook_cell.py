@@ -183,20 +183,64 @@ class NotebookCell(io.ComfyNode):
             execution_event = threading.Event()
             interrupt_flag = threading.Event()
 
-            def trace_interrupt(frame, event, arg):
+            # Create interrupt check function
+            def check_interrupt():
                 if interrupt_flag.is_set():
                     raise ProcessingInterrupted("Code execution interrupted by user")
-                return trace_interrupt
+
+            # Wrap common built-in functions to check interrupts periodically
+            _original_range = range
+            _original_enumerate = enumerate
+            _original_next = next
+            _original_iter = iter
+            _original_zip = zip
+            _original_map = map
+            _original_filter = filter
+
+            def interrupt_checking_range(*args, **kwargs):
+                check_interrupt()
+                return _original_range(*args, **kwargs)
+
+            def interrupt_checking_enumerate(iterable, start=0):
+                check_interrupt()
+                return _original_enumerate(iterable, start)
+
+            def interrupt_checking_next(iterator, default=None):
+                check_interrupt()
+                return _original_next(iterator, default)
+
+            def interrupt_checking_iter(obj, sentinel=None):
+                check_interrupt()
+                return _original_iter(obj, sentinel)
+
+            def interrupt_checking_zip(*iterables, strict=False):
+                check_interrupt()
+                return _original_zip(*iterables, strict=strict)
+
+            def interrupt_checking_map(func, *iterables):
+                check_interrupt()
+                return _original_map(func, *iterables)
+
+            def interrupt_checking_filter(function, iterable):
+                check_interrupt()
+                return _original_filter(function, iterable)
 
             def execute_in_thread():
                 try:
-                    old_trace = sys.gettrace()
-                    sys.settrace(trace_interrupt)
-                    try:
-                        with torch.inference_mode(False):  # Counter ComfyUI's mode
-                            spec.loader.exec_module(module)
-                    finally:
-                        sys.settrace(old_trace)
+                    # Inject wrapped functions into module globals
+                    module.__dict__["range"] = interrupt_checking_range
+                    module.__dict__["enumerate"] = interrupt_checking_enumerate
+                    module.__dict__["next"] = interrupt_checking_next
+                    module.__dict__["iter"] = interrupt_checking_iter
+                    module.__dict__["zip"] = interrupt_checking_zip
+                    module.__dict__["map"] = interrupt_checking_map
+                    module.__dict__["filter"] = interrupt_checking_filter
+                    module.__dict__["check_interrupt"] = (
+                        check_interrupt  # Also expose for manual checks
+                    )
+
+                    with torch.inference_mode(False):  # Counter ComfyUI's mode
+                        spec.loader.exec_module(module)
                 except Exception as e:
                     execution_result["exception"] = e
                 finally:
