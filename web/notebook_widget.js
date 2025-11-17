@@ -177,10 +177,39 @@ app.registerExtension({
         if (widget.options) widget.options.hideOnZoom = false;
         const ta = widget.inputEl || widget.element; // textarea element        
 
+        const ensureAttachmentObserver = () => {
+            if (ta._nb_attachment_observer) return;
+            const target = node?.el || document.body;
+            const observer = new MutationObserver(() => {
+                const wrapper = ta.closest('.dom-widget');
+                if (!wrapper) return;
+                observer.disconnect();
+                ta._nb_attachment_observer = null;
+                applyMonaco(ta);
+                if (!wrapper._nb_ro) {
+                    const ro = new ResizeObserver(() => {
+                        if (app.canvas?.low_quality) return;
+                        applyMonaco(ta);
+                    });
+                    ro.observe(wrapper);
+                    wrapper._nb_ro = ro;
+                }
+            });
+            observer.observe(target, { childList: true, subtree: true });
+            ta._nb_attachment_observer = observer;
+        };
+
         const tryMount = () => {
             const wrapper = ta.closest('.dom-widget');
-            if (!wrapper) return;
+            if (!wrapper) {
+                ensureAttachmentObserver();
+                return;
+            }
             applyMonaco(ta);
+            if (ta._nb_attachment_observer) {
+                ta._nb_attachment_observer.disconnect();
+                ta._nb_attachment_observer = null;
+            }
             if (!wrapper._nb_ro) {
                 const ro = new ResizeObserver(() => {
                     if (app.canvas?.low_quality) return; // skip while zoomed out
