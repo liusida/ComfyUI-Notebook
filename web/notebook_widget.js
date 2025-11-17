@@ -96,7 +96,7 @@ async function applyMonaco(textarea) {
         fontSize: 13,
         fontFamily: 'Consolas, Monaco, "Courier New", monospace',
         lineNumbers: 'on',
-        minimap: { enabled: true },
+        minimap: { enabled: false },
         scrollBeyondLastLine: false,
         wordWrap: 'on',
         tabSize: 4,
