@@ -243,15 +243,102 @@ app.registerExtension({
                 }
             }
         };
+
+        // Setup resize handle for output area
+        setTimeout(() => {
+            const outputWidget = node.widgets?.find((w) => w.name === 'No Preview');
+            if (!outputWidget) return;
+            const outputEl = outputWidget.element?.closest('.dom-widget');
+            if (!outputEl) return;
+
+            const handle = document.createElement('div');
+            handle.style.cssText = 'position:fixed;left:0;right:0;height:4px;cursor:ns-resize;z-index:1000;';
+            let dragging = false, startY = 0, startH = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                dragging = true;
+                startY = e.clientY;
+                startH = node.outputHeight || 50;
+                document.addEventListener('mousemove', move);
+                document.addEventListener('mouseup', up);
+                e.preventDefault();
+            });
+
+            function move(e) {
+                if (!dragging) return;
+                // Get canvas scale to adjust mouse movement
+                const scale = app.canvas?.ds?.scale || 1;
+                const deltaY = (startY - e.clientY) / scale;
+                const h = Math.max(30, Math.min(300, startH + deltaY));
+                node.outputHeight = h;
+                outputWidget.options.getMinHeight = () => outputWidget.hidden ? 0 : h;
+                outputWidget.options.getMaxHeight = () => outputWidget.hidden ? 0 : h;
+                node.setSize([node.size[0], node.size[1]]);
+                app.graph.setDirtyCanvas(true, false);
+            }
+
+            function up() {
+                dragging = false;
+                document.removeEventListener('mousemove', move);
+                document.removeEventListener('mouseup', up);
+            }
+
+            const updatePos = () => {
+                if (outputWidget.hidden) {
+                    handle.style.display = 'none';
+                    return;
+                }
+                handle.style.display = 'block';
+                handle.style.backgroundColor = 'rgba(20,20,20,0.1)';
+                const widgetStyle = window.getComputedStyle(outputEl);
+                const rect = outputEl.getBoundingClientRect();
+                handle.style.position = widgetStyle.position;
+                handle.style.transformOrigin = widgetStyle.transformOrigin;
+                handle.style.transform = widgetStyle.transform;
+                handle.style.left = widgetStyle.left;
+                handle.style.width = widgetStyle.width;
+                const scale = app.canvas?.ds?.scale || 1;
+                handle.style.top = `${rect.top - 12 * scale}px`;
+            };
+
+            document.body.appendChild(handle);
+            new ResizeObserver(updatePos).observe(outputEl);
+
+            // Watch for widget style changes (position updates)
+            const styleObserver = new MutationObserver(updatePos);
+            styleObserver.observe(outputEl, { attributes: true, attributeFilter: ['style'] });
+
+            // Watch for canvas transform changes (pan/zoom)
+            const canvas = app.canvas?.canvas;
+            if (canvas) {
+                const canvasObserver = new MutationObserver(updatePos);
+                canvasObserver.observe(canvas, { attributes: true, attributeFilter: ['style'] });
+            }
+
+            updatePos();
+        }, 200);
     },
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         if (nodeData.name !== 'NotebookCell') return;
 
+        // Initialize output height preference
+        const originalOnNodeCreated = nodeType.prototype.onNodeCreated;
+        nodeType.prototype.onNodeCreated = function () {
+            if (originalOnNodeCreated) originalOnNodeCreated.apply(this, []);
+            if (this.outputHeight === undefined) this.outputHeight = 50;
+        };
+
         // Hook into onNodeCreated to add output widget
         const onNodeCreated = nodeType.prototype.onNodeCreated;
         nodeType.prototype.onNodeCreated = function () {
             if (onNodeCreated) onNodeCreated.apply(this, []);
+
+            // Make code widget flexible
+            const codeWidget = this.widgets?.find((w) => w.name === 'code');
+            if (codeWidget?.options) {
+                codeWidget.options.getMaxHeight = () => undefined;
+            }
 
             // Add output textarea widget
             const outputWidget = ComfyWidgets['STRING'](
@@ -262,8 +349,9 @@ app.registerExtension({
             ).widget;
             outputWidget.element.readOnly = true;
             outputWidget.serializeValue = () => ''; // Prevent serialization of the output widget
-            outputWidget.options.getMinHeight = () => outputWidget.hidden ? 0 : 50;
-            outputWidget.options.getMaxHeight = () => outputWidget.hidden ? 0 : 50;
+            const height = () => this.outputHeight || 50;
+            outputWidget.options.getMinHeight = () => outputWidget.hidden ? 0 : height();
+            outputWidget.options.getMaxHeight = () => outputWidget.hidden ? 0 : height();
         };
 
         // Hook into onExecuted to update output widget
