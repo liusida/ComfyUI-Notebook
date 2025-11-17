@@ -6,6 +6,7 @@ import threading
 from comfy_api.latest import io
 from comfy_api_nodes.util._helpers import is_processing_interrupted
 from comfy_api_nodes.util.common_exceptions import ProcessingInterrupted
+import server
 
 
 class TeeOutput:
@@ -209,10 +210,9 @@ class NotebookCell(io.ComfyNode):
             while not execution_event.wait(timeout=0.1):
                 # Sync stdout to GUI periodically
                 current_output = stdout_capture.getvalue()
+                display_node_id = None
                 if len(current_output) > last_output_length:
                     try:
-                        import server
-
                         if server.PromptServer.instance and context:
                             display_node_id = (
                                 cls.hidden.unique_id
