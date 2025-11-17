@@ -252,6 +252,7 @@ app.registerExtension({
             if (!outputEl) return;
 
             const handle = document.createElement('div');
+            handle.className = 'notebook-resize-handle';
             handle.style.cssText = 'position:fixed;left:0;right:0;height:4px;cursor:ns-resize;z-index:1000;';
             let dragging = false, startY = 0, startH = 0;
 
@@ -290,15 +291,35 @@ app.registerExtension({
                 }
                 handle.style.display = 'block';
                 handle.style.backgroundColor = 'rgba(20,20,20,0.1)';
+                // handle.style.backgroundColor = 'rgba(255,0,0,1)';
                 const widgetStyle = window.getComputedStyle(outputEl);
                 const rect = outputEl.getBoundingClientRect();
+
+                // Check if element is actually visible/positioned
+                if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.left === 0) {
+                    // Element might not be positioned yet, hide handle
+                    handle.style.display = 'none';
+                    return;
+                }
+
                 handle.style.position = widgetStyle.position;
                 handle.style.transformOrigin = widgetStyle.transformOrigin;
                 handle.style.transform = widgetStyle.transform;
                 handle.style.left = widgetStyle.left;
                 handle.style.width = widgetStyle.width;
+                handle.style.zIndex = widgetStyle.zIndex || '1';
                 const scale = app.canvas?.ds?.scale || 1;
                 handle.style.top = `${rect.top - 12 * scale}px`;
+            };
+
+            // Clean up handle when node is removed
+            const originalOnRemoved = node.onRemoved;
+            node.onRemoved = function () {
+                document.querySelectorAll('.notebook-resize-handle').forEach(handle => {
+                    // Check if handle is associated with this node (could add data-node-id attribute)
+                    handle.remove();
+                });
+                if (originalOnRemoved) originalOnRemoved.apply(this, arguments);
             };
 
             document.body.appendChild(handle);
