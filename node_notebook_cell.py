@@ -44,6 +44,48 @@ def _get_notebook_globals():
     return {}, {}
 
 
+# This Utils class can be accessed from the cells using the 'Notebook' object
+class NotebookCellUtils:
+    plots = []
+
+    @classmethod
+    def clear_plots(cls):
+        cls.plots = []
+
+    @classmethod
+    def add_plot(cls):
+        import matplotlib.pyplot as plt
+        from PIL import Image as PILImage
+        from io import BytesIO
+
+        # Check if there's a current figure with plots
+        fig = plt.gcf()
+        if fig.get_axes():
+            # Check if figure has actual data
+            has_data = False
+            for ax in fig.get_axes():
+                if ax.lines or ax.patches or ax.collections or ax.images:
+                    has_data = True
+                    break
+
+            if has_data:
+                buf = BytesIO()
+                fig.savefig(buf, format="png", dpi=100)
+                buf.seek(0)
+                pil_image = PILImage.open(buf)
+                plt.close(fig)
+                plt.close("all")
+
+                img_array = (
+                    np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
+                )
+                cls.plots.append(torch.from_numpy(img_array)[None,])
+
+    @classmethod
+    def get_plot_tensor(cls):
+        return torch.cat(cls.plots, dim=0)
+
+
 class NotebookCell(io.ComfyNode):
     @classmethod
     def define_schema(cls) -> io.Schema:
@@ -82,12 +124,14 @@ class NotebookCell(io.ComfyNode):
 
         _NOTEBOOK_GLOBALS, _PRELOAD_MODULES = _get_notebook_globals()
 
-        # Create a custom namespace with common imports
+        # Expose objects to the cells
+        NotebookCellUtils.clear_plots()
         _NOTEBOOK_GLOBALS.update(
             {
-                "input": input,  # Make input available to the code
-                "input_2": input_2,  # Make input available to the code
-                "Result": None,  # Make Result available to the code
+                "input": input,
+                "input_2": input_2,
+                "Notebook": NotebookCellUtils,
+                "Result": None,
             }
         )
         _NOTEBOOK_GLOBALS.update(_PRELOAD_MODULES)
@@ -167,8 +211,8 @@ class NotebookCell(io.ComfyNode):
 """
 
         with open(temp_file, "w", encoding="utf-8") as f:
-            f.write(metadata)
             f.write(code)
+            f.write(metadata)
 
         module_name = f"notebook_cell_{safe_workflow_id}_{safe_node_id}"
         try:
@@ -322,60 +366,26 @@ class NotebookCell(io.ComfyNode):
         # Get captured output
         stdout_output = stdout_capture.getvalue()
         # Combine outputs
-        all_output = ""
+        output_Stdout = ""
         if stdout_output:
-            all_output += stdout_output
+            output_Stdout += stdout_output
 
-        image_output = None
         # Auto-capture matplotlib figures at the end (like Jupyter does)
-        try:
-            import matplotlib.pyplot as plt
-            from PIL import Image as PILImage
-            from io import BytesIO
+        NotebookCellUtils.add_plot()
+        # Create Plot output tensor
+        if NotebookCellUtils.plots:
+            output_Plot = NotebookCellUtils.get_plot_tensor()
+        else:
+            output_Plot = torch.ones((1, 1, 1, 3), dtype=torch.float32)
 
-            # Check if there's a current figure with plots
-            fig = plt.gcf()
-            if fig.get_axes():
-                # Check if figure has actual data
-                has_data = False
-                for ax in fig.get_axes():
-                    if ax.lines or ax.patches or ax.collections or ax.images:
-                        has_data = True
-                        break
-
-                if has_data:
-                    buf = BytesIO()
-                    fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
-                    buf.seek(0)
-                    pil_image = PILImage.open(buf)
-                    plt.close(fig)
-                    plt.close("all")
-
-                    img_array = (
-                        np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
-                    )
-                    image_output = torch.from_numpy(img_array)[None,]
-
-        except:
-            pass
-
-        # Create a default 1x1 pixel image if no image output
-        if image_output is None:
-            # Create a 1x1 white pixel image (RGB)
-            image_output = torch.ones((1, 1, 1, 3), dtype=torch.float32)
-
-        result = _NOTEBOOK_GLOBALS.get("Result", None)
-        # # Display `Result`
-        # if result is not None and str(result) != "None":
-        #     all_output += "[Result]\n"
-        #     all_output += str(result)
+        output_Result = _NOTEBOOK_GLOBALS.get("Result", None)
 
         # Clean up the output
-        if not all_output:
-            all_output = "[No output]"
+        if not output_Stdout:
+            output_Stdout = "[No output]"
 
         # Create UI output to display the results
-        ui_output = {"text": (all_output,)}
+        ui_output = {"text": (output_Stdout,)}
 
         # return three slots: Result, Plot, Stdout
-        return io.NodeOutput(result, image_output, all_output, ui=ui_output)
+        return io.NodeOutput(output_Result, output_Plot, output_Stdout, ui=ui_output)
