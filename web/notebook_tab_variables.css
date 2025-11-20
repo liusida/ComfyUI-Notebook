@@ -1,0 +1,43 @@
+.notebook-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.notebook-workflow-content {
+  margin-top: 8px;
+}
+
+.notebook-workflow-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.notebook-workflow-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.notebook-workflow-id {
+  font-size: 14px;
+  color: #aaa;
+}
+
+.notebook-workflow-free-btn {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+.notebook-last-updated {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #ccc;
+}
