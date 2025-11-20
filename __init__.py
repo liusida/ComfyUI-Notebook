@@ -11,8 +11,8 @@ from .node_notebook_force_rerun import NotebookForceRerun
 WEB_DIRECTORY = os.path.join(os.path.dirname(__file__), "web")
 
 
-# Global dictionary for sharing variables between notebook cells
-_NOTEBOOK_GLOBALS = {}
+# Global dictionary for sharing variables between notebook cells, keyed by workflow ID
+_NOTEBOOK_KERNELS = {}
 _PRELOAD_MODULES = {}
 
 
@@ -74,6 +74,6 @@ async def comfy_entrypoint() -> NotebookExtension:
     # Register API routes after globals are defined
     from . import notebook_apis
 
-    notebook_apis.register_routes(_NOTEBOOK_GLOBALS, _PRELOAD_MODULES)
+    notebook_apis.register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES)
 
     return NotebookExtension()

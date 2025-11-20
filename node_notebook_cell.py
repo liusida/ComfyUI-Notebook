@@ -38,8 +38,8 @@ def _get_notebook_globals():
     package_name = __package__
     if package_name:
         init_module = sys.modules.get(package_name)
-        if init_module and hasattr(init_module, "_NOTEBOOK_GLOBALS"):
-            return init_module._NOTEBOOK_GLOBALS, init_module._PRELOAD_MODULES
+        if init_module and hasattr(init_module, "_NOTEBOOK_KERNELS"):
+            return init_module._NOTEBOOK_KERNELS, init_module._PRELOAD_MODULES
     # Fallback: create new dicts if import fails (shouldn't happen in normal usage)
     return {}, {}
 
@@ -128,8 +128,17 @@ class NotebookCell(io.ComfyNode):
 
     @classmethod
     def execute(cls, code: str, input=None, input_2=None) -> io.NodeOutput:
+        try:
+            workflow_id = cls.hidden.extra_pnginfo["workflow"]["id"]
+            print(f"{cls.hidden.extra_pnginfo=}")
+        except:
+            workflow_id = "0"
 
-        _NOTEBOOK_GLOBALS, _PRELOAD_MODULES = _get_notebook_globals()
+        _NOTEBOOK_KERNELS, _PRELOAD_MODULES = _get_notebook_globals()
+
+        if workflow_id not in _NOTEBOOK_KERNELS:
+            _NOTEBOOK_KERNELS[workflow_id] = {}
+        _NOTEBOOK_GLOBALS = _NOTEBOOK_KERNELS[workflow_id]
 
         # Expose objects to the cells
         NotebookCellUtils.clear_plots()
@@ -181,10 +190,6 @@ class NotebookCell(io.ComfyNode):
         except:
             cell_name = "NotebookCell"
 
-        try:
-            workflow_id = cls.hidden.extra_pnginfo["workflow"]["id"]
-        except:
-            workflow_id = "0"
         safe_workflow_id = "".join(
             c if c.isalnum() or c in ("-", "_") else "_" for c in str(workflow_id)
         )
@@ -359,6 +364,7 @@ class NotebookCell(io.ComfyNode):
                 "__dict__",
                 "__module__",
                 "__builtins__",
+                "__cached__",
             }
             module_vars = {
                 k: v for k, v in module.__dict__.items() if k not in keys_to_exclude
