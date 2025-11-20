@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-notebook"
 description = "A Jupyter-style custom node for executing Python code within ComfyUI workflows. Features syntax highlighting, shared variables between cells, and pre-loaded libraries (numpy, torch, PIL, matplotlib)."
-version = "1.0.1"
+version = "1.0.2"
 license = { text = "MIT" }
 dependencies = [
     "matplotlib",
