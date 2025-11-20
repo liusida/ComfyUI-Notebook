@@ -1,0 +1,19 @@
+[project]
+name = "comfyui-notebook"
+description = "A Jupyter-style custom node for executing Python code within ComfyUI workflows. Features syntax highlighting, shared variables between cells, and pre-loaded libraries (numpy, torch, PIL, matplotlib)."
+version = "1.0.0"
+license = { text = "MIT" }
+dependencies = [
+    "matplotlib",
+]
+readme = "README.md"
+requires-python = ">=3.8"
+
+[project.urls]
+Repository = "https://github.com/liusida/ComfyUI-Notebook"
+
+[tool.comfy]
+PublisherId = "liusida"
+DisplayName = "ComfyUI Notebook"
+Icon = "https://github.com/liusida/ComfyUI-Notebook/raw/main/img/icon-256.png"
+
