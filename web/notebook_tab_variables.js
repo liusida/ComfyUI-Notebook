@@ -163,7 +163,7 @@ function renderWorkflows(content, kernels, workflowInfoMap, state) {
       content.appendChild(header);
 
       const table = document.createElement("table");
-      table.className = "comfy-markdown-content";
+      table.className = "comfy-markdown-content notebook-variables-table";
       const headerRow = document.createElement("tr");
       ["Name", "Type", "Value"].forEach((label) => {
         const th = document.createElement("th");

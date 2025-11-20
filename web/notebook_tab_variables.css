@@ -41,3 +41,15 @@
   font-size: 12px;
   color: #ccc;
 }
+
+.notebook-variables-table {
+  border-collapse: collapse;
+  margin-top: 10px;
+  min-width: 500px;
+}
+
+.notebook-variables-table th,
+.notebook-variables-table td {
+  padding: 5px;
+  border: 1px solid #444;
+}
