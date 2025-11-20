@@ -47,10 +47,12 @@ def _get_notebook_globals():
 # This Utils class can be accessed from the cells using the 'Notebook' object
 class NotebookCellUtils:
     plots = []
+    expected_plot_shape = None  # Store expected shape: (H, W, 3)
 
     @classmethod
     def clear_plots(cls):
         cls.plots = []
+        cls.expected_plot_shape = None
 
     @classmethod
     def add_plot(cls):
@@ -79,6 +81,11 @@ class NotebookCellUtils:
                 img_array = (
                     np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
                 )
+                if cls.expected_plot_shape is None:
+                    cls.expected_plot_shape = img_array.shape
+                else:
+                    if cls.expected_plot_shape != img_array.shape:
+                        raise ValueError(f"The figsize of all plots must be the same.")
                 cls.plots.append(torch.from_numpy(img_array)[None,])
 
     @classmethod

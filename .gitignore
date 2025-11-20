@@ -1,5 +1,6 @@
 temp_notebook_cells/
 node.zip
+.env
 
 # Python
 __pycache__/
