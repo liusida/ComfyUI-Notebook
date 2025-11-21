@@ -23,7 +23,7 @@ Clone `ComfyUI-Notebook` (this repo) to `ComfyUI/custom_nodes/` and restart Comf
 print(1 + 1)
 ```
 
-![1+1](./img/simple.png)
+<img src="./img/simple.png" width="500">
 
 **Plotting:**
 
