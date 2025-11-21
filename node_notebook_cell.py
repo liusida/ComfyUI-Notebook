@@ -130,7 +130,6 @@ class NotebookCell(io.ComfyNode):
     def execute(cls, code: str, input=None, input_2=None) -> io.NodeOutput:
         try:
             workflow_id = cls.hidden.extra_pnginfo["workflow"]["id"]
-            print(f"{cls.hidden.extra_pnginfo=}")
         except:
             workflow_id = "0"
 
