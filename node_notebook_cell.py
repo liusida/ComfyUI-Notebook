@@ -1,5 +1,6 @@
 import io as io_module
 import sys
+import types
 import torch
 import numpy as np
 import threading
@@ -7,6 +8,8 @@ from comfy_api.latest import io
 from comfy_api_nodes.util._helpers import is_processing_interrupted
 from comfy_api_nodes.util.common_exceptions import ProcessingInterrupted
 import server
+
+from .fix_globals import fix_value_globals
 
 
 class TeeOutput:
@@ -364,11 +367,33 @@ class NotebookCell(io.ComfyNode):
                 "__module__",
                 "__builtins__",
                 "__cached__",
+                "__warningregistry__",
+                "range",
+                "enumerate",
+                "next",
+                "iter",
+                "zip",
+                "map",
+                "filter",
+                "check_interrupt",
             }
             module_vars = {
                 k: v for k, v in module.__dict__.items() if k not in keys_to_exclude
             }
+            # print(f"{module_vars=}")
+            _NOTEBOOK_GLOBALS.clear()
             _NOTEBOOK_GLOBALS.update(module_vars)
+
+            # Fix function __globals__ references to prevent memory leaks
+            # Functions and classes defined in cells have __globals__ pointing to module.__dict__
+            # We need to update them to point to _NOTEBOOK_GLOBALS instead
+            for key, value in list(_NOTEBOOK_GLOBALS.items()):
+                try:
+                    fixed_value = fix_value_globals(value, _NOTEBOOK_GLOBALS)
+                    if fixed_value is not value:
+                        _NOTEBOOK_GLOBALS[key] = fixed_value
+                except Exception:
+                    pass  # If fixing fails, keep original
 
         finally:
             # Restore stdout and stderr
