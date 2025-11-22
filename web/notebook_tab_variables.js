@@ -93,10 +93,10 @@ function createPanel(container) {
   buttonRow.className = "notebook-toolbar";
 
   const refreshButton = createButton("🔄 Refresh");
-  const clearButton = createButton("❌ Free All Memory");
+  const rebootButton = createButton("⚠️ Reboot Server");
   const clearTempButton = createButton("🗑️ Clear Temp Files");
   const copyAllButton = createButton("📋 Copy All Cells Code [Left to Right]");
-  buttonRow.append(refreshButton, clearButton, clearTempButton, copyAllButton);
+  buttonRow.append(refreshButton, rebootButton, clearTempButton, copyAllButton);
 
   const content = document.createElement("div");
   content.className = "notebook-workflow-content";
@@ -111,7 +111,7 @@ function createPanel(container) {
     container,
     buttonRow,
     refreshButton,
-    clearButton,
+    rebootButton,
     clearTempButton,
     copyAllButton,
     content,
@@ -215,21 +215,47 @@ async function handleFreeWorkflow(workflowId, button, state) {
   }
 }
 
-async function handleFreeAll(state) {
-  const button = state.clearButton;
+async function handleReboot(state) {
+  const button = state.rebootButton;
   const originalText = button.textContent;
   button.disabled = true;
-  button.textContent = "Freeing...";
+  button.textContent = "Rebooting...";
+
   try {
-    await api.fetchApi("/notebook/free", { method: "POST" });
-    await state.refresh();
+    // Fire and forget - server will restart and won't respond
+    api.fetchApi("/notebook/reboot", { method: "POST" }).catch(() => {
+      // Expected - server is restarting, connection will be lost
+    });
+
+    // Listen for the server to come back online
+    const onReconnected = () => {
+      api.removeEventListener('reconnected', onReconnected);
+      button.textContent = "✅ Server Online";
+      button.disabled = false;
+      setTimeout(() => {
+        button.textContent = originalText;
+      }, 2000);
+      state.refresh();
+    };
+
+    api.addEventListener('reconnected', onReconnected);
+
+    // Fallback timeout in case reconnection takes too long
+    setTimeout(() => {
+      api.removeEventListener('reconnected', onReconnected);
+      if (button.disabled) {
+        button.textContent = originalText;
+        button.disabled = false;
+      }
+    }, 60000); // 60 second timeout
+
   } catch (error) {
-    console.error("[Notebook Variables] Failed to free all workflows", error);
-  } finally {
+    console.error("[Notebook Variables] Failed to reboot server", error);
     button.textContent = originalText;
     button.disabled = false;
   }
 }
+
 async function handleClearTemp(state) {
   const button = state.clearTempButton;
   const originalText = button.textContent;
@@ -341,7 +367,7 @@ app.registerExtension({
         };
 
         state.refreshButton.onclick = () => state.refresh();
-        state.clearButton.onclick = () => handleFreeAll(state);
+        state.rebootButton.onclick = () => handleReboot(state);
         state.clearTempButton.onclick = () => handleClearTemp(state);
         state.copyAllButton.onclick = () => handleCopyAllCells(state.copyAllButton);
 

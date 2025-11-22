@@ -96,3 +96,58 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
             return web.json_response({"status": "ok"})
         except Exception as e:
             return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+    @server.PromptServer.instance.routes.post("/notebook/reboot")
+    async def reboot_server(request):
+        """
+        Restart the ComfyUI server.
+        """
+        try:
+            import sys
+            import os
+
+            # Close stdout logging if available
+            try:
+                sys.stdout.close_log()
+            except Exception:
+                pass
+
+            # If using CLI wrapper, create reboot marker file
+            if "__COMFY_CLI_SESSION__" in os.environ:
+                with open(
+                    os.path.join(os.environ["__COMFY_CLI_SESSION__"] + ".reboot"), "w"
+                ):
+                    pass
+                print("\nRestarting...\n\n")
+                exit(0)
+
+            # Legacy mode: use os.execv to replace current process
+            print("\nRestarting ComfyUI...\n\n")
+
+            sys_argv = sys.argv.copy()
+
+            # Handle Windows standalone build flag
+            if "--windows-standalone-build" in sys_argv:
+                sys_argv.remove("--windows-standalone-build")
+
+            # Build command to restart
+            if sys_argv[0].endswith("__main__.py"):  # Python module mode
+                module_name = os.path.basename(os.path.dirname(sys_argv[0]))
+                cmds = [sys.executable, "-m", module_name] + sys_argv[1:]
+            elif sys.platform.startswith("win32"):
+                cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[
+                    1:
+                ]
+            else:
+                cmds = [sys.executable] + sys_argv
+
+            print(f"Command: {cmds}", flush=True)
+            print(
+                "--------------------------------------------------------------------------\n"
+            )
+
+            # Replace current process with new one (this restarts the server)
+            os.execv(sys.executable, cmds)
+
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
