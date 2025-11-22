@@ -82,12 +82,11 @@ function createButton(label) {
 function createPanel(container) {
   ensureStylesLoaded();
   container.innerHTML = "";
-  container.style.padding = "20px";
-  container.style.height = "100%";
-  container.style.overflowY = "auto";
+  container.className = "notebook-container";
 
-  const title = document.createElement("h2");
-  title.textContent = "Notebook Variables";
+  const title = document.createElement("h3");
+  title.className = "notebook-title";
+  title.textContent = "Notebook Control Panel";
 
   const buttonRow = document.createElement("div");
   buttonRow.className = "notebook-toolbar";
@@ -342,7 +341,7 @@ app.registerExtension({
   bottomPanelTabs: [
     {
       id: "notebook-tab-variables",
-      title: "Notebook Global Variables",
+      title: "📓 Notebook",
       type: "custom",
       targetPanel: "terminal",
       render: (container) => {

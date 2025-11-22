@@ -1,3 +1,14 @@
+.notebook-container {
+  padding: 10px 20px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.notebook-title {
+  margin: 5px 0;
+  float: right;
+}
+
 .notebook-toolbar {
   display: flex;
   flex-wrap: wrap;
