@@ -182,6 +182,18 @@ app.registerExtension({
     async setup() {
         // console.log("NotebookCell extension setup");
         await loadMonaco();
+
+        // Hook into ds.onChanged to update resize handles when zoom/pan changes
+        if (app.canvas?.ds) {
+            const originalOnChanged = app.canvas.ds.onChanged;
+            app.canvas.ds.onChanged = function (scale, offset) {
+                if (originalOnChanged) originalOnChanged.call(this, scale, offset);
+                // Update all resize handles when zoom/pan changes
+                document.querySelectorAll('.notebook-resize-handle').forEach(handle => {
+                    if (handle._updatePos) handle._updatePos();
+                });
+            };
+        }
     },
 
     async nodeCreated(node) {
@@ -350,29 +362,40 @@ app.registerExtension({
                 handle.style.top = `${rect.top - 12 * scale}px`;
             };
 
-            // Clean up handle when node is removed
-            const originalOnRemoved = node.onRemoved;
-            node.onRemoved = function () {
-                document.querySelectorAll('.notebook-resize-handle').forEach(handle => {
-                    // Check if handle is associated with this node (could add data-node-id attribute)
-                    handle.remove();
-                });
-                if (originalOnRemoved) originalOnRemoved.apply(this, arguments);
-            };
+            // Store update function on handle for global zoom/pan handler
+            handle._updatePos = updatePos;
 
             document.body.appendChild(handle);
-            new ResizeObserver(updatePos).observe(outputEl);
 
-            // Watch for widget style changes (position updates)
+            // Create observers and store references for cleanup
+            const resizeObserver = new ResizeObserver(updatePos);
+            resizeObserver.observe(outputEl);
+
             const styleObserver = new MutationObserver(updatePos);
             styleObserver.observe(outputEl, { attributes: true, attributeFilter: ['style'] });
 
-            // Watch for canvas transform changes (pan/zoom)
+            let canvasObserver = null;
             const canvas = app.canvas?.canvas;
             if (canvas) {
-                const canvasObserver = new MutationObserver(updatePos);
+                canvasObserver = new MutationObserver(updatePos);
                 canvasObserver.observe(canvas, { attributes: true, attributeFilter: ['style'] });
             }
+
+            // Clean up handle and observers when node is removed
+            const originalOnRemoved = node.onRemoved;
+            node.onRemoved = function () {
+                // Remove handle
+                if (handle.parentNode) {
+                    handle.remove();
+                }
+                // Clean up observers
+                resizeObserver.disconnect();
+                styleObserver.disconnect();
+                if (canvasObserver) canvasObserver.disconnect();
+                // Clear update function reference
+                delete handle._updatePos;
+                if (originalOnRemoved) originalOnRemoved.apply(this, arguments);
+            };
 
             updatePos();
         }, 200);
