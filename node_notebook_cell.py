@@ -296,6 +296,14 @@ class NotebookCell(io.ComfyNode):
                     module.__dict__["check_interrupt"] = (
                         check_interrupt  # Also expose for manual checks
                     )
+                    _NOTEBOOK_GLOBALS["check_interrupt"] = check_interrupt
+                    _NOTEBOOK_GLOBALS["range"] = interrupt_checking_range
+                    _NOTEBOOK_GLOBALS["enumerate"] = interrupt_checking_enumerate
+                    _NOTEBOOK_GLOBALS["next"] = interrupt_checking_next
+                    _NOTEBOOK_GLOBALS["iter"] = interrupt_checking_iter
+                    _NOTEBOOK_GLOBALS["zip"] = interrupt_checking_zip
+                    _NOTEBOOK_GLOBALS["map"] = interrupt_checking_map
+                    _NOTEBOOK_GLOBALS["filter"] = interrupt_checking_filter
 
                     with torch.inference_mode(False):  # Counter ComfyUI's mode
                         spec.loader.exec_module(module)
