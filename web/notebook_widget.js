@@ -4,8 +4,12 @@ import { ComfyWidgets } from "../../../scripts/widgets.js";
 
 let monacoLoaded = false;
 let monacoThemeDefined = false;
+let DEBUG = "";
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+function isNodes2() {
+    return typeof LiteGraph !== 'undefined' && LiteGraph.vueNodesMode === true;
 }
 // Load Monaco Editor
 function loadMonaco() {
@@ -162,14 +166,18 @@ async function applyMonaco(textarea) {
     });
 
     // Watch for node resizing
-    const resizeObserver = new ResizeObserver(() => {
-        // Get current dimensions from the parent container
-        editorContainer.style.width = parentContainer.style.width;
-        editorContainer.style.height = parentContainer.style.height;
-    });
+    let resizeObserver = null;
+    if (!isNodes2()) {
+        resizeObserver = new ResizeObserver(() => {
+            // Get current dimensions from the parent container
+            editorContainer.style.width = parentContainer.style.width;
+            editorContainer.style.height = parentContainer.style.height;
+        });
 
-    resizeObserver.observe(parentContainer);
-
+        resizeObserver.observe(parentContainer);
+    } else {
+        DEBUG = "Warning: Nodes 2.0 not fully supported. Refresh after toggle.";
+    }
     // Store reference
     textarea.editor = editor;
     textarea.editorContainer = editorContainer;
@@ -194,6 +202,24 @@ app.registerExtension({
                 });
             };
         }
+
+        // Patch renderInfo to add custom debug output
+        if (app.canvas) {
+            const originalRenderInfo = app.canvas.renderInfo;
+            app.canvas.renderInfo = function (ctx, x, y) {
+                // Call original method first
+                originalRenderInfo.call(this, ctx, x, y);
+
+                ctx.save();
+                ctx.translate(x || 10, y || this.canvas.offsetHeight - 80);
+                ctx.font = `10px ${LiteGraph.DEFAULT_FONT || 'Arial'}`;
+                ctx.fillStyle = '#888';
+                ctx.textAlign = 'left';
+                ctx.fillText(`${DEBUG}`, 5, 13 * -1);
+                ctx.restore();
+            };
+        }
+
     },
 
     async nodeCreated(node) {
@@ -202,7 +228,26 @@ app.registerExtension({
         const widget = node.widgets?.find((w) => w.name === 'code' && (w.type === 'customtext' || w.type === 'MARKDOWN'));
         if (!widget) return;
         if (widget.options) widget.options.hideOnZoom = false;
-        const ta = widget.inputEl || widget.element; // textarea element        
+
+        // In Nodes 2.0 mode, the original widget.element might not be used
+        // We need to find the actual textarea element rendered by the Vue component
+        let ta = widget.inputEl || widget.element;
+
+        // Helper function to find the actual textarea in Nodes 2.0 mode
+        const findTextareaInNodes2 = () => {
+            // Find the node's Vue component container
+            const nodeEl = node.el || document.querySelector(`[data-node-id="${node.id}"]`);
+            if (!nodeEl) return null;
+
+            // Find the widget container (lg-node-widget)
+            const widgetContainer = nodeEl.querySelector(`.lg-node-widget`);
+            if (!widgetContainer) return null;
+
+            // Find the textarea inside the widget container
+            // It's inside a .widget-expands div in WidgetTextarea/WidgetMarkdown
+            const textarea = widgetContainer.querySelector('textarea');
+            return textarea;
+        };
 
         const ensureResizeObserver = (wrapper) => {
             if (wrapper._nb_ro) return;
@@ -218,8 +263,16 @@ app.registerExtension({
             if (ta._nb_attachment_observer) return;
             const target = node?.el || document.body;
             const observer = new MutationObserver(() => {
-                const wrapper = ta.closest('.dom-widget');
-                if (!wrapper) return;
+                // In Nodes 2.0 mode, try to find the textarea if it wasn't found yet
+                if (isNodes2() && (!ta || !ta.parentNode)) {
+                    const foundTa = findTextareaInNodes2();
+                    if (foundTa) {
+                        ta = foundTa;
+                    }
+                }
+
+                const wrapper = ta?.closest('.dom-widget') || ta?.closest('.lg-node-widget');
+                if (!wrapper || !ta) return;
                 observer.disconnect();
                 ta._nb_attachment_observer = null;
                 applyMonaco(ta);
@@ -230,7 +283,24 @@ app.registerExtension({
         };
 
         const tryMount = () => {
-            const wrapper = ta.closest('.dom-widget');
+            // In Nodes 2.0 mode, find the actual textarea from the Vue component
+            if (isNodes2() && (!ta || !ta.parentNode)) {
+                const foundTa = findTextareaInNodes2();
+                if (foundTa) {
+                    ta = foundTa;
+                } else {
+                    // Textarea not found yet, wait for Vue component to mount
+                    ensureAttachmentObserver();
+                    return;
+                }
+            }
+
+            if (!ta) {
+                ensureAttachmentObserver();
+                return;
+            }
+
+            const wrapper = ta.closest('.dom-widget') || ta.closest('.lg-node-widget');
             if (!wrapper) {
                 ensureAttachmentObserver();
                 return;
