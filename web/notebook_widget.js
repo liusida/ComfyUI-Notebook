@@ -478,6 +478,7 @@ app.registerExtension({
         nodeType.prototype.onNodeCreated = function () {
             if (originalOnNodeCreated) originalOnNodeCreated.apply(this, []);
             if (this.outputHeight === undefined) this.outputHeight = 50;
+            this.size = [500, 300];
 
             const codeWidget = this.widgets?.find((w) => w.name === 'code');
             if (codeWidget?.options) {
