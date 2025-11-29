@@ -106,6 +106,21 @@ async function applyMonaco(textarea) {
     parentContainer.insertBefore(editorContainer, textarea.nextSibling);
     // console.log("Editor container created");
 
+    // Add click handler to select node when clicking on Monaco editor
+    const node = textarea._nb_node;
+    if (node && app.canvas) {
+        editorContainer.addEventListener('mousedown', function (e) {
+            if (e.button === 0 && !window.getSelection().toString()) {
+                app.canvas.deselectAll();
+                app.canvas.select(node);
+                if (app.canvas.onSelectionChange) {
+                    app.canvas.onSelectionChange(app.canvas.selected_nodes);
+                }
+                app.canvas.setDirty(true, true);
+            }
+        }, true);
+    }
+
     // Create Monaco Editor instance
     const editor = monaco.editor.create(editorContainer, {
         value: originalValue,
@@ -268,11 +283,13 @@ app.registerExtension({
                     const foundTa = findTextareaInNodes2();
                     if (foundTa) {
                         ta = foundTa;
+                        ta._nb_node = node;
                     }
                 }
 
                 const wrapper = ta?.closest('.dom-widget') || ta?.closest('.lg-node-widget');
                 if (!wrapper || !ta) return;
+                ta._nb_node = node;
                 observer.disconnect();
                 ta._nb_attachment_observer = null;
                 applyMonaco(ta);
@@ -299,6 +316,9 @@ app.registerExtension({
                 ensureAttachmentObserver();
                 return;
             }
+
+            // Store node reference on textarea for use in applyMonaco
+            ta._nb_node = node;
 
             const wrapper = ta.closest('.dom-widget') || ta.closest('.lg-node-widget');
             if (!wrapper) {
