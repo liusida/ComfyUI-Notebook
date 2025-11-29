@@ -266,6 +266,49 @@ class NotebookCell(io.ComfyNode):
             module = importlib.util.module_from_spec(spec)
             module.__dict__.update(_NOTEBOOK_GLOBALS)
 
+            # Fix imported classes/functions to use sys.modules versions
+            # This must happen BEFORE module execution to ensure correct MRO resolution
+            def fix_imported_objects_for_module(module_dict):
+                """Replace imported classes/functions in module dict with sys.modules versions"""
+                for key, value in list(module_dict.items()):
+                    try:
+                        if isinstance(value, type):
+                            module_name = getattr(value, "__module__", None)
+                            if module_name and module_name in sys.modules:
+                                module_obj = sys.modules[module_name]
+                                class_name = value.__name__
+                                if hasattr(module_obj, class_name):
+                                    sys_version = getattr(module_obj, class_name)
+                                    if (
+                                        isinstance(sys_version, type)
+                                        and sys_version is not value
+                                    ):
+                                        if (
+                                            getattr(sys_version, "__module__", None)
+                                            == module_name
+                                            and sys_version.__name__ == class_name
+                                        ):
+                                            module_dict[key] = sys_version
+                        elif isinstance(value, types.FunctionType):
+                            module_name = getattr(value, "__module__", None)
+                            if module_name and module_name in sys.modules:
+                                module_obj = sys.modules[module_name]
+                                func_name = value.__name__
+                                if hasattr(module_obj, func_name):
+                                    sys_version = getattr(module_obj, func_name)
+                                    if (
+                                        isinstance(sys_version, types.FunctionType)
+                                        and sys_version is not value
+                                        and getattr(sys_version, "__module__", None)
+                                        == module_name
+                                    ):
+                                        module_dict[key] = sys_version
+                    except Exception:
+                        pass
+
+            # Fix imported objects in module dict BEFORE execution
+            fix_imported_objects_for_module(module.__dict__)
+
             # Execute in a separate thread to allow interrupt checking
             execution_result = {"exception": None}
             execution_event = threading.Event()
