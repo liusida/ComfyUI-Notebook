@@ -81,9 +81,7 @@ class NotebookCellUtils:
                 plt.close(fig)
                 plt.close("all")
 
-                img_array = (
-                    np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
-                )
+                img_array = np.array(pil_image.convert("RGB")).astype(np.float32) / 255.0
                 if cls.expected_plot_shape is None:
                     cls.expected_plot_shape = img_array.shape
                 else:
@@ -186,22 +184,14 @@ class NotebookCell(io.ComfyNode):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         try:
-            cell_name = (
-                cls.SCHEMA.display_name if cls.SCHEMA.display_name else "NotebookCell"
-            )
+            cell_name = cls.SCHEMA.display_name if cls.SCHEMA.display_name else "NotebookCell"
         except:
             cell_name = "NotebookCell"
 
-        safe_workflow_id = "".join(
-            c if c.isalnum() or c in ("-", "_") else "_" for c in str(workflow_id)
-        )
+        safe_workflow_id = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in str(workflow_id))
         node_id = context.node_id if context else "0"
-        safe_node_id = "".join(
-            c if c.isalnum() or c in ("-", "_") else "_" for c in str(node_id)
-        )
-        temp_file = os.path.join(
-            temp_dir, f"workflow_{safe_workflow_id}_node_{safe_node_id}.py"
-        )
+        safe_node_id = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in str(node_id))
+        temp_file = os.path.join(temp_dir, f"workflow_{safe_workflow_id}_node_{safe_node_id}.py")
 
         # Generate metadata header
         metadata = f"""
@@ -240,9 +230,7 @@ class NotebookCell(io.ComfyNode):
             try:
                 if server.PromptServer.instance and context:
                     stdout_state["display_node_id"] = (
-                        cls.hidden.unique_id
-                        if hasattr(cls.hidden, "unique_id")
-                        else context.node_id
+                        cls.hidden.unique_id if hasattr(cls.hidden, "unique_id") else context.node_id
                     )
                     ui_output = {"text": (current_output,)}
                     server.PromptServer.instance.send_sync(
@@ -279,13 +267,9 @@ class NotebookCell(io.ComfyNode):
                                 class_name = value.__name__
                                 if hasattr(module_obj, class_name):
                                     sys_version = getattr(module_obj, class_name)
-                                    if (
-                                        isinstance(sys_version, type)
-                                        and sys_version is not value
-                                    ):
+                                    if isinstance(sys_version, type) and sys_version is not value:
                                         if (
-                                            getattr(sys_version, "__module__", None)
-                                            == module_name
+                                            getattr(sys_version, "__module__", None) == module_name
                                             and sys_version.__name__ == class_name
                                         ):
                                             module_dict[key] = sys_version
@@ -299,8 +283,7 @@ class NotebookCell(io.ComfyNode):
                                     if (
                                         isinstance(sys_version, types.FunctionType)
                                         and sys_version is not value
-                                        and getattr(sys_version, "__module__", None)
-                                        == module_name
+                                        and getattr(sys_version, "__module__", None) == module_name
                                     ):
                                         module_dict[key] = sys_version
                     except Exception:
@@ -366,9 +349,7 @@ class NotebookCell(io.ComfyNode):
                     module.__dict__["zip"] = interrupt_checking_zip
                     module.__dict__["map"] = interrupt_checking_map
                     module.__dict__["filter"] = interrupt_checking_filter
-                    module.__dict__["check_interrupt"] = (
-                        check_interrupt  # Also expose for manual checks
-                    )
+                    module.__dict__["check_interrupt"] = check_interrupt  # Also expose for manual checks
                     _NOTEBOOK_GLOBALS["check_interrupt"] = check_interrupt
                     _NOTEBOOK_GLOBALS["range"] = interrupt_checking_range
                     _NOTEBOOK_GLOBALS["enumerate"] = interrupt_checking_enumerate
@@ -385,6 +366,8 @@ class NotebookCell(io.ComfyNode):
                 finally:
                     execution_event.set()
 
+            stdout_capture.write("\u200b")  # Send a zero-width space to clear any existing output
+
             exec_thread = threading.Thread(target=execute_in_thread, daemon=True)
             exec_thread.start()
 
@@ -400,9 +383,7 @@ class NotebookCell(io.ComfyNode):
                     raise ProcessingInterrupted("Code execution interrupted by user")
 
             if execution_result["exception"]:
-                stdout_capture.write(
-                    f"\n[Execution error]\n{execution_result['exception']}"
-                )
+                stdout_capture.write(f"\n[Execution error]\n{execution_result['exception']}")
                 push_stdout_updates(force=True)
                 raise execution_result["exception"]
 
@@ -427,9 +408,7 @@ class NotebookCell(io.ComfyNode):
                 "filter",
                 "check_interrupt",
             }
-            module_vars = {
-                k: v for k, v in module.__dict__.items() if k not in keys_to_exclude
-            }
+            module_vars = {k: v for k, v in module.__dict__.items() if k not in keys_to_exclude}
             # print(f"{module_vars=}")
             _NOTEBOOK_GLOBALS.clear()
             _NOTEBOOK_GLOBALS.update(module_vars)

@@ -59,11 +59,7 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
             variables = {}
             for key, value in globals_dict.items():
                 try:
-                    if (
-                        key in list_to_ignore
-                        or isinstance(value, types.ModuleType)
-                        or inspect.isclass(value)
-                    ):
+                    if key in list_to_ignore or isinstance(value, types.ModuleType) or inspect.isclass(value):
                         continue
 
                     # Simple representation
@@ -82,9 +78,7 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
                     }
             kernels[workflow_id] = variables
 
-        return web.json_response(
-            {"status": "ok", "count": len(kernels), "kernels": kernels}
-        )
+        return web.json_response({"status": "ok", "count": len(kernels), "kernels": kernels})
 
     @server.PromptServer.instance.routes.post("/notebook/clear_temp_files")
     async def clear_temp_files(request):
@@ -114,9 +108,7 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
 
             # If using CLI wrapper, create reboot marker file
             if "__COMFY_CLI_SESSION__" in os.environ:
-                with open(
-                    os.path.join(os.environ["__COMFY_CLI_SESSION__"] + ".reboot"), "w"
-                ):
+                with open(os.path.join(os.environ["__COMFY_CLI_SESSION__"] + ".reboot"), "w"):
                     pass
                 print("\nRestarting...\n\n")
                 exit(0)
@@ -135,16 +127,12 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
                 module_name = os.path.basename(os.path.dirname(sys_argv[0]))
                 cmds = [sys.executable, "-m", module_name] + sys_argv[1:]
             elif sys.platform.startswith("win32"):
-                cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[
-                    1:
-                ]
+                cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
             else:
                 cmds = [sys.executable] + sys_argv
 
             print(f"Command: {cmds}", flush=True)
-            print(
-                "--------------------------------------------------------------------------\n"
-            )
+            print("--------------------------------------------------------------------------\n")
 
             # Replace current process with new one (this restarts the server)
             os.execv(sys.executable, cmds)

@@ -51,31 +51,15 @@ def fix_class_globals(cls, _NOTEBOOK_GLOBALS):
                     new_dict[key] = fix_function_globals(value, _NOTEBOOK_GLOBALS)
                 elif isinstance(value, classmethod):
                     # classmethod wraps a function
-                    new_dict[key] = classmethod(
-                        fix_function_globals(value.__func__, _NOTEBOOK_GLOBALS)
-                    )
+                    new_dict[key] = classmethod(fix_function_globals(value.__func__, _NOTEBOOK_GLOBALS))
                 elif isinstance(value, staticmethod):
                     # staticmethod wraps a function
-                    new_dict[key] = staticmethod(
-                        fix_function_globals(value.__func__, _NOTEBOOK_GLOBALS)
-                    )
+                    new_dict[key] = staticmethod(fix_function_globals(value.__func__, _NOTEBOOK_GLOBALS))
                 elif isinstance(value, property):
                     # property has fget, fset, fdel which are functions
-                    fget = (
-                        fix_function_globals(value.fget, _NOTEBOOK_GLOBALS)
-                        if value.fget
-                        else None
-                    )
-                    fset = (
-                        fix_function_globals(value.fset, _NOTEBOOK_GLOBALS)
-                        if value.fset
-                        else None
-                    )
-                    fdel = (
-                        fix_function_globals(value.fdel, _NOTEBOOK_GLOBALS)
-                        if value.fdel
-                        else None
-                    )
+                    fget = fix_function_globals(value.fget, _NOTEBOOK_GLOBALS) if value.fget else None
+                    fset = fix_function_globals(value.fset, _NOTEBOOK_GLOBALS) if value.fset else None
+                    fdel = fix_function_globals(value.fdel, _NOTEBOOK_GLOBALS) if value.fdel else None
                     new_dict[key] = property(fget, fset, fdel, value.__doc__)
                 else:
                     new_dict[key] = value
@@ -100,8 +84,6 @@ def fix_value_globals(value, _NOTEBOOK_GLOBALS):
         return {k: fix_value_globals(v, _NOTEBOOK_GLOBALS) for k, v in value.items()}
     elif isinstance(value, types.MethodType):
         # Bound method - fix the underlying function
-        return types.MethodType(
-            fix_function_globals(value.__func__, _NOTEBOOK_GLOBALS), value.__self__
-        )
+        return types.MethodType(fix_function_globals(value.__func__, _NOTEBOOK_GLOBALS), value.__self__)
     else:
         return value

@@ -28,4 +28,3 @@ class NotebookForceRerun(io.ComfyNode):
     @classmethod
     def execute(cls) -> io.NodeOutput:
         return io.NodeOutput(True)
-
