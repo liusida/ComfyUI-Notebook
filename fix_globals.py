@@ -76,8 +76,8 @@ def fix_value_globals(value, _NOTEBOOK_GLOBALS):
     """Fix __globals__ for any value that might have it."""
     if isinstance(value, types.FunctionType):
         return fix_function_globals(value, _NOTEBOOK_GLOBALS)
-    elif isinstance(value, type):
-        return fix_class_globals(value, _NOTEBOOK_GLOBALS)
+    # elif isinstance(value, type):
+    #     return fix_class_globals(value, _NOTEBOOK_GLOBALS)
     elif isinstance(value, (list, tuple)):
         return type(value)(fix_value_globals(item, _NOTEBOOK_GLOBALS) for item in value)
     elif isinstance(value, dict):
