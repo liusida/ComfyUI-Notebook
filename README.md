@@ -4,7 +4,7 @@ A Jupyter-style custom node for executing Python code within [ComfyUI](https://g
 
 ## ⚠️ Security Warning First
 
-**This custom node is intended for power users and programmers only.**
+This custom node is intended for **power users** and **programmers** ONLY.
 
 This node explicitly allows execution of Python code within ComfyUI workflows. While the code execution is transparent and safe when you understand what code you are running, there are important security considerations:
 
