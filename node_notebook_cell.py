@@ -9,8 +9,6 @@ from comfy_api_nodes.util._helpers import is_processing_interrupted
 from comfy_api_nodes.util.common_exceptions import ProcessingInterrupted
 import server
 
-from .fix_globals import fix_value_globals
-
 
 class TeeOutput:
     """Write to both original stdout and capture buffer"""
@@ -43,7 +41,8 @@ def _get_notebook_globals():
         init_module = sys.modules.get(package_name)
         if init_module and hasattr(init_module, "_NOTEBOOK_KERNELS"):
             return init_module._NOTEBOOK_KERNELS, init_module._PRELOAD_MODULES
-    # Fallback: create new dicts if import fails (shouldn't happen in normal usage)
+    # Fallback: return empty dicts if import fails (shouldn't happen in normal usage)
+    print("Warning: Failed to get notebook globals from __init__.py")
     return {}, {}
 
 
@@ -107,7 +106,7 @@ class NotebookCell(io.ComfyNode):
                     "code",
                     multiline=True,
                     default="",
-                    tooltip="Python code to execute. Use 'input' for connected data, 'globals' for sharing between cells.",
+                    tooltip="Python code to execute. Use 'input' for connected data. Variables defined in cells are automatically shared.",
                 ),
                 io.AnyType.Input(
                     "input",
@@ -136,9 +135,15 @@ class NotebookCell(io.ComfyNode):
 
         _NOTEBOOK_KERNELS, _PRELOAD_MODULES = _get_notebook_globals()
 
+        # Create or get kernel module for this workflow
         if workflow_id not in _NOTEBOOK_KERNELS:
-            _NOTEBOOK_KERNELS[workflow_id] = {}
-        _NOTEBOOK_GLOBALS = _NOTEBOOK_KERNELS[workflow_id]
+            # Create a real module object (not just a dict) for this workflow
+            kernel = types.ModuleType(f"notebook_kernel_{workflow_id}")
+            kernel.__dict__.update(_PRELOAD_MODULES)
+            _NOTEBOOK_KERNELS[workflow_id] = kernel
+
+        kernel = _NOTEBOOK_KERNELS[workflow_id]
+        _NOTEBOOK_GLOBALS = kernel.__dict__
 
         # Expose objects to the cells
         NotebookCellUtils.clear_plots()
@@ -150,28 +155,15 @@ class NotebookCell(io.ComfyNode):
                 "Result": None,
             }
         )
-        _NOTEBOOK_GLOBALS.update(_PRELOAD_MODULES)
+        # _NOTEBOOK_GLOBALS.update(_PRELOAD_MODULES)
 
-        # Capture stdout and stderr
+        # Capture stdout
         stdout_capture = io_module.StringIO()
-        # Store original stdout/stderr
+        # Store original stdout
         old_stdout = sys.stdout
 
-        ####
-        ## Old Method: compile and exec
-        # try:
-        #     with torch.inference_mode(False):  # Counter ComfyUI's inference mode
-        #         sys.stdout = TeeOutput(old_stdout, stdout_capture)
-        #         compiled_code = compile(code, "<string>", "exec", flags=0)
-        #         exec(compiled_code, _NOTEBOOK_GLOBALS)
-        # finally:
-        #     # Restore stdout and stderr
-        #     sys.stdout = old_stdout
-        ####
-        ##
-        ## New Method: Temporary file
         # Create temporary file for debugging support
-        import hashlib, os, importlib
+        import hashlib, os
         from datetime import datetime
         from comfy_execution.utils import get_executing_context
 
@@ -218,8 +210,6 @@ class NotebookCell(io.ComfyNode):
             f.write(code)
             f.write(metadata)
 
-        module_name = f"notebook_cell_{safe_workflow_id}_{safe_node_id}"
-
         stdout_state = {"last_output_length": 0, "display_node_id": None}
 
         def push_stdout_updates(force=False):
@@ -249,48 +239,47 @@ class NotebookCell(io.ComfyNode):
 
         try:
             sys.stdout = TeeOutput(old_stdout, stdout_capture)
-            sys.modules.pop(module_name, None)
-            spec = importlib.util.spec_from_file_location(module_name, temp_file)
-            module = importlib.util.module_from_spec(spec)
-            module.__dict__.update(_NOTEBOOK_GLOBALS)
 
             # Fix imported classes/functions to use sys.modules versions
-            # This must happen BEFORE module execution to ensure correct MRO resolution
+            # This must happen BEFORE execution to ensure correct MRO resolution
             def fix_imported_objects_for_module(module_dict):
                 """Replace imported classes/functions in module dict with sys.modules versions"""
                 for key, value in list(module_dict.items()):
                     try:
                         if isinstance(value, type):
-                            module_name = getattr(value, "__module__", None)
-                            if module_name and module_name in sys.modules:
-                                module_obj = sys.modules[module_name]
+                            mod_name = getattr(value, "__module__", None)
+                            if mod_name and mod_name in sys.modules:
+                                module_obj = sys.modules[mod_name]
                                 class_name = value.__name__
                                 if hasattr(module_obj, class_name):
                                     sys_version = getattr(module_obj, class_name)
                                     if isinstance(sys_version, type) and sys_version is not value:
                                         if (
-                                            getattr(sys_version, "__module__", None) == module_name
+                                            getattr(sys_version, "__module__", None) == mod_name
                                             and sys_version.__name__ == class_name
                                         ):
                                             module_dict[key] = sys_version
                         elif isinstance(value, types.FunctionType):
-                            module_name = getattr(value, "__module__", None)
-                            if module_name and module_name in sys.modules:
-                                module_obj = sys.modules[module_name]
+                            mod_name = getattr(value, "__module__", None)
+                            if mod_name and mod_name in sys.modules:
+                                module_obj = sys.modules[mod_name]
                                 func_name = value.__name__
                                 if hasattr(module_obj, func_name):
                                     sys_version = getattr(module_obj, func_name)
                                     if (
                                         isinstance(sys_version, types.FunctionType)
                                         and sys_version is not value
-                                        and getattr(sys_version, "__module__", None) == module_name
+                                        and getattr(sys_version, "__module__", None) == mod_name
                                     ):
                                         module_dict[key] = sys_version
                     except Exception:
                         pass
 
-            # Fix imported objects in module dict BEFORE execution
-            fix_imported_objects_for_module(module.__dict__)
+            # Fix imported objects in kernel dict BEFORE execution
+            fix_imported_objects_for_module(_NOTEBOOK_GLOBALS)
+
+            # Compile code with temp file path for debugging support
+            compiled_code = compile(code, temp_file, "exec")
 
             # Execute in a separate thread to allow interrupt checking
             execution_result = {"exception": None}
@@ -341,16 +330,7 @@ class NotebookCell(io.ComfyNode):
 
             def execute_in_thread():
                 try:
-                    # Inject wrapped functions into module globals
-                    module.__dict__["range"] = interrupt_checking_range
-                    module.__dict__["enumerate"] = interrupt_checking_enumerate
-                    module.__dict__["next"] = interrupt_checking_next
-                    module.__dict__["iter"] = interrupt_checking_iter
-                    module.__dict__["zip"] = interrupt_checking_zip
-                    module.__dict__["map"] = interrupt_checking_map
-                    module.__dict__["filter"] = interrupt_checking_filter
-                    module.__dict__["check_interrupt"] = check_interrupt  # Also expose for manual checks
-                    _NOTEBOOK_GLOBALS["check_interrupt"] = check_interrupt
+                    # Inject wrapped functions into kernel globals
                     _NOTEBOOK_GLOBALS["range"] = interrupt_checking_range
                     _NOTEBOOK_GLOBALS["enumerate"] = interrupt_checking_enumerate
                     _NOTEBOOK_GLOBALS["next"] = interrupt_checking_next
@@ -358,9 +338,10 @@ class NotebookCell(io.ComfyNode):
                     _NOTEBOOK_GLOBALS["zip"] = interrupt_checking_zip
                     _NOTEBOOK_GLOBALS["map"] = interrupt_checking_map
                     _NOTEBOOK_GLOBALS["filter"] = interrupt_checking_filter
+                    _NOTEBOOK_GLOBALS["check_interrupt"] = check_interrupt  # Also expose for manual checks
 
                     with torch.inference_mode(False):  # Counter ComfyUI's mode
-                        spec.loader.exec_module(module)
+                        exec(compiled_code, _NOTEBOOK_GLOBALS)
                 except Exception as e:
                     execution_result["exception"] = e
                 finally:
@@ -387,52 +368,17 @@ class NotebookCell(io.ComfyNode):
                 push_stdout_updates(force=True)
                 raise execution_result["exception"]
 
-            keys_to_exclude = {
-                "__name__",
-                "__file__",
-                "__package__",
-                "__loader__",
-                "__spec__",
-                "__doc__",
-                "__dict__",
-                "__module__",
-                "__builtins__",
-                "__cached__",
-                "__warningregistry__",
-                "range",
-                "enumerate",
-                "next",
-                "iter",
-                "zip",
-                "map",
-                "filter",
-                "check_interrupt",
-            }
-            module_vars = {k: v for k, v in module.__dict__.items() if k not in keys_to_exclude}
-            # print(f"{module_vars=}")
-            _NOTEBOOK_GLOBALS.clear()
-            _NOTEBOOK_GLOBALS.update(module_vars)
-
-            # Fix function __globals__ references to prevent memory leaks
-            # Functions and classes defined in cells have __globals__ pointing to module.__dict__
-            # We need to update them to point to _NOTEBOOK_GLOBALS instead
-            for key, value in list(_NOTEBOOK_GLOBALS.items()):
-                try:
-                    fixed_value = fix_value_globals(value, _NOTEBOOK_GLOBALS)
-                    if fixed_value is not value:
-                        _NOTEBOOK_GLOBALS[key] = fixed_value
-                except Exception:
-                    pass  # If fixing fails, keep original
+            # No need to copy back or fix functions - code executed directly into kernel.__dict__
+            # Functions defined in cells already have __globals__ pointing to _NOTEBOOK_GLOBALS
 
         finally:
-            # Restore stdout and stderr
+            # Restore stdout
             push_stdout_updates(force=True)
             sys.stdout = old_stdout
-            sys.modules.pop(module_name, None)
 
         # Get captured output
         stdout_output = stdout_capture.getvalue()
-        # Combine outputs
+        # Get stdout output
         output_Stdout = ""
         if stdout_output:
             output_Stdout += stdout_output

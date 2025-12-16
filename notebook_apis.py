@@ -52,12 +52,19 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
             "zip",
             "map",
             "filter",
+            "__doc__",
+            "__loader__",
+            "__name__",
+            "__package__",
+            "__spec__",
+            "__file__",
+            "__cached__",
         ]
         list_to_ignore.extend(_PRELOAD_MODULES.keys())
 
-        for workflow_id, globals_dict in _NOTEBOOK_KERNELS.items():
+        for workflow_id, kernel in _NOTEBOOK_KERNELS.items():
             variables = {}
-            for key, value in globals_dict.items():
+            for key, value in kernel.__dict__.items():
                 try:
                     if key in list_to_ignore or isinstance(value, types.ModuleType) or inspect.isclass(value):
                         continue
