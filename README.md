@@ -2,14 +2,24 @@
 
 A Jupyter-style custom node for executing Python code within [ComfyUI](https://github.com/comfyanonymous/ComfyUI) workflows.
 
-## Features
+## ⚠️ Security Warning First
+
+**This custom node is intended for power users and programmers only.**
+
+This node explicitly allows execution of Python code within ComfyUI workflows. While the code execution is transparent and safe when you understand what code you are running, there are important security considerations:
+
+-   **ComfyUI is not a sandbox environment** - The security risk depends entirely on the permissions you grant to the ComfyUI process. Code executed through this node runs with the same privileges as your ComfyUI instance.
+-   **Treat downloaded workflows as Python source files** - If you download and execute workflows from untrusted sources, you could inadvertently run harmful Python code that could damage your system, access your files, or compromise your security.
+-   **Not recommended for beginners** - The ComfyUI official organization prefers custom nodes that are secure for beginners. This node does not provide sandboxing or code restrictions, making it unsuitable for users with no programming experience who cannot verify the safety of the code they execute.
+
+## ✨ Features
 
 -   Syntax highlighting with Monaco Editor (similar to VSCode)
 -   Shared variables between cells via `globals` dictionary
 -   Pre-loaded: numpy, torch, PIL, matplotlib
 -   Plot generation and dynamic outputs
 
-## Installation
+## 📦 Installation
 
 Install [ComfyUI](https://github.com/comfyanonymous/ComfyUI).
 

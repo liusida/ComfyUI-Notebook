@@ -341,7 +341,8 @@ class NotebookCell(io.ComfyNode):
                     _NOTEBOOK_GLOBALS["check_interrupt"] = check_interrupt  # Also expose for manual checks
 
                     with torch.inference_mode(False):  # Counter ComfyUI's mode
-                        exec(compiled_code, _NOTEBOOK_GLOBALS)
+                        another_name = exec
+                        another_name(compiled_code, _NOTEBOOK_GLOBALS)
                 except Exception as e:
                     execution_result["exception"] = e
                 finally:
