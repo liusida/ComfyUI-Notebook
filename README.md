@@ -8,8 +8,8 @@ This custom node is intended for **power users** and **programmers** ONLY.
 
 This node explicitly allows execution of Python code within ComfyUI workflows. While the code execution is transparent and safe when you understand what code you are running, there are important security considerations:
 
--   **ComfyUI is not a sandbox environment** - The security risk depends entirely on the permissions you grant to the ComfyUI process. Code executed through this node runs with the same privileges as your ComfyUI instance.
--   **Treat downloaded workflows as Python source files** - If you download and execute workflows from untrusted sources, you could inadvertently run harmful Python code that could damage your system, access your files, or compromise your security.
+-   [**ComfyUI is not a sandbox environment**] - The security risk depends entirely on the permissions you grant to the ComfyUI process. Code executed through this node runs with the same privileges as your ComfyUI instance.
+-   [**Treat downloaded workflows as Python source files**] - If you download and execute workflows from untrusted sources, you could inadvertently run harmful Python code that could damage your system, access your files, or compromise your security.
 
 ## ✨ Features
 
