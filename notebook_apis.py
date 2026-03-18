@@ -161,14 +161,20 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
         repo_root = Path(__file__).resolve().parents[2] / "user" / "default"
         logging.info("[Notebook Git] Using repo root: %s", str(repo_root))
 
+        ssh_key = "/workspace/.ssh/id_ed25519"
+        git_ssh_command = f"ssh -i {ssh_key} -o StrictHostKeyChecking=no"
+
         def run(cmd, check=True, label=""):
             logging.info("[Notebook Git] Running %s: %s", label or "command", " ".join(cmd))
+            env = os.environ.copy()
+            env["GIT_SSH_COMMAND"] = git_ssh_command
             result = subprocess.run(
                 cmd,
                 cwd=repo_root,
                 check=check,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             logging.info("[Notebook Git] %s exit code: %s", label or "command", result.returncode)
             if result.stdout:
