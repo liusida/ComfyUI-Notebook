@@ -95,7 +95,18 @@ function createPanel(container) {
   const rebootButton = createButton("⚠️ Reboot Server");
   const clearTempButton = createButton("🗑️ Clear Temp Files");
   const copyAllButton = createButton("📋 Copy All Cells Code [Left to Right]");
-  buttonRow.append(refreshButton, rebootButton, clearTempButton, copyAllButton);
+  const copyJsonButton = createButton("📄 Copy JSON");
+  const pasteJsonButton = createButton("📥 Paste JSON");
+  const gitPushButton = createButton("⬆️ Git Push");
+  buttonRow.append(
+    refreshButton,
+    rebootButton,
+    clearTempButton,
+    copyAllButton,
+    copyJsonButton,
+    pasteJsonButton,
+    gitPushButton
+  );
 
   const content = document.createElement("div");
   content.className = "notebook-workflow-content";
@@ -113,6 +124,9 @@ function createPanel(container) {
     rebootButton,
     clearTempButton,
     copyAllButton,
+    copyJsonButton,
+    pasteJsonButton,
+    gitPushButton,
     content,
     lastUpdatedLabel,
   };
@@ -336,6 +350,236 @@ function handleCopyAllCells(button) {
   }
 }
 
+function handleCopyWorkflowJSON(button) {
+  try {
+    const graph = app.graph;
+    if (!graph) {
+      alert("No graph found");
+      return;
+    }
+
+    let workflowJson;
+    try {
+      if (typeof graph.serialize === "function") {
+        workflowJson = graph.serialize();
+      } else if (graph.toJSON) {
+        workflowJson = graph.toJSON();
+      } else {
+        throw new Error("Graph serialization not available");
+      }
+    } catch (err) {
+      console.error("[Notebook Variables] Failed to serialize workflow graph", err);
+      alert(`Failed to serialize workflow: ${err.message}`);
+      return;
+    }
+
+    const jsonText = JSON.stringify(workflowJson, null, 2);
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Copying JSON...";
+    navigator.clipboard
+      .writeText(jsonText)
+      .then(() => {
+        button.textContent = "✅ JSON Copied!";
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.disabled = false;
+        }, 1500);
+      })
+      .catch((err) => {
+        console.error("[Notebook Variables] Failed to copy JSON:", err);
+        button.textContent = "⚠️ Error";
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.disabled = false;
+        }, 1500);
+      });
+  } catch (error) {
+    console.error("[Notebook Variables] Error copying workflow JSON:", error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+function openJsonPasteDialog(initialValue = "") {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.background = "rgba(0, 0, 0, 0.4)";
+    overlay.style.zIndex = "9999";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+
+    const dialog = document.createElement("div");
+    dialog.style.background = "#1e1e1e";
+    dialog.style.color = "#fff";
+    dialog.style.padding = "12px";
+    dialog.style.borderRadius = "8px";
+    dialog.style.maxWidth = "800px";
+    dialog.style.width = "90%";
+    dialog.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)";
+    dialog.style.display = "flex";
+    dialog.style.flexDirection = "column";
+    dialog.style.gap = "8px";
+
+    const title = document.createElement("div");
+    title.textContent = "Paste workflow JSON";
+    title.style.fontWeight = "600";
+
+    const hint = document.createElement("div");
+    hint.textContent = "Paste a full ComfyUI workflow JSON below. It will replace the current workflow when you click Apply.";
+    hint.style.fontSize = "12px";
+    hint.style.opacity = "0.8";
+
+    const textarea = document.createElement("textarea");
+    textarea.value = initialValue;
+    textarea.style.width = "100%";
+    textarea.style.height = "260px";
+    textarea.style.resize = "vertical";
+    textarea.style.fontFamily = "monospace";
+    textarea.style.fontSize = "12px";
+    textarea.style.background = "#111";
+    textarea.style.color = "#eee";
+    textarea.style.border = "1px solid #444";
+    textarea.style.borderRadius = "4px";
+    textarea.spellcheck = false;
+
+    const buttonRow = document.createElement("div");
+    buttonRow.style.display = "flex";
+    buttonRow.style.justifyContent = "flex-end";
+    buttonRow.style.gap = "8px";
+    buttonRow.style.marginTop = "4px";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+
+    const applyBtn = document.createElement("button");
+    applyBtn.textContent = "Apply";
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    applyBtn.onclick = () => {
+      const value = textarea.value.trim();
+      cleanup();
+      resolve(value || null);
+    };
+
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        resolve(null);
+      }
+    };
+
+    buttonRow.append(cancelBtn, applyBtn);
+    dialog.append(title, hint, textarea, buttonRow);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    textarea.focus();
+  });
+}
+
+async function handlePasteWorkflowJSON(button) {
+  try {
+    const graph = app.graph;
+    if (!graph) {
+      alert("No graph found");
+      return;
+    }
+
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = "Pasting JSON...";
+
+    const text = await openJsonPasteDialog("");
+    if (!text) {
+      button.textContent = originalText;
+      button.disabled = false;
+      return;
+    }
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (err) {
+      console.error("[Notebook Variables] Clipboard content is not valid JSON:", err);
+      alert("Clipboard content is not valid JSON.");
+      button.textContent = originalText;
+      button.disabled = false;
+      return;
+    }
+
+    try {
+      if (typeof graph.configure === "function") {
+        // Clear current graph and load new one
+        graph.clear();
+        graph.configure(data);
+        if (typeof graph.setDirtyCanvas === "function") {
+          graph.setDirtyCanvas(true, true);
+        }
+      } else {
+        throw new Error("Graph does not support configure()");
+      }
+    } catch (err) {
+      console.error("[Notebook Variables] Failed to apply workflow JSON:", err);
+      alert(`Failed to apply workflow JSON: ${err.message}`);
+      button.textContent = originalText;
+      button.disabled = false;
+      return;
+    }
+
+    button.textContent = "✅ JSON Pasted!";
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.disabled = false;
+    }, 1500);
+  } catch (error) {
+    console.error("[Notebook Variables] Error pasting workflow JSON:", error);
+    alert(`Error: ${error.message}`);
+  }
+}
+
+async function handleGitPush(button) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Pushing...";
+  try {
+    const response = await api.fetchApi("/notebook/git_push", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data?.status === "ok") {
+      button.textContent = "✅ Pushed";
+    } else {
+      console.error("[Notebook Variables] Git push failed", data);
+      button.textContent = "⚠️ Error";
+      if (data?.message) {
+        alert(`Git push failed: ${data.message}`);
+      }
+    }
+  } catch (error) {
+    console.error("[Notebook Variables] Git push error", error);
+    button.textContent = "⚠️ Error";
+    alert(`Git push error: ${error.message}`);
+  } finally {
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.disabled = false;
+    }, 3000);
+  }
+}
+
 app.registerExtension({
   name: "ComfyUI-Notebook.NotebookTabVariables",
   bottomPanelTabs: [
@@ -369,6 +613,9 @@ app.registerExtension({
         state.rebootButton.onclick = () => handleReboot(state);
         state.clearTempButton.onclick = () => handleClearTemp(state);
         state.copyAllButton.onclick = () => handleCopyAllCells(state.copyAllButton);
+        state.copyJsonButton.onclick = () => handleCopyWorkflowJSON(state.copyJsonButton);
+        state.pasteJsonButton.onclick = () => handlePasteWorkflowJSON(state.pasteJsonButton);
+        state.gitPushButton.onclick = () => handleGitPush(state.gitPushButton);
 
         state.refresh();
       },

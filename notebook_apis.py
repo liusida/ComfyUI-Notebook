@@ -3,7 +3,10 @@ import types
 import inspect
 import os
 import shutil
+import subprocess
+from pathlib import Path
 from aiohttp import web
+import logging
 
 
 def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
@@ -146,3 +149,90 @@ def register_routes(_NOTEBOOK_KERNELS, _PRELOAD_MODULES):
 
         except Exception as e:
             return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+    def run_git_push():
+        """
+        Run git add/commit/push in the cloned repo under user/default.
+        Uses whatever remote/SSH config that repo already has.
+        """
+        # Repo is checked out under the main ComfyUI workspace: /workspace/ComfyUI/user/default
+        # __file__ is .../custom_nodes/ComfyUI-Notebook/notebook_apis.py
+        # So go up two levels to the ComfyUI root, then into user/default
+        repo_root = Path(__file__).resolve().parents[2] / "user" / "default"
+        logging.info("[Notebook Git] Using repo root: %s", str(repo_root))
+
+        def run(cmd, check=True, label=""):
+            logging.info("[Notebook Git] Running %s: %s", label or "command", " ".join(cmd))
+            result = subprocess.run(
+                cmd,
+                cwd=repo_root,
+                check=check,
+                capture_output=True,
+                text=True,
+            )
+            logging.info("[Notebook Git] %s exit code: %s", label or "command", result.returncode)
+            if result.stdout:
+                logging.info("[Notebook Git] %s stdout:\n%s", label or "command", result.stdout.strip())
+            if result.stderr:
+                logging.info("[Notebook Git] %s stderr:\n%s", label or "command", result.stderr.strip())
+            return result
+
+        try:
+            add_result = run(["git", "add", "-A"], label="git add")
+
+            diff_result = subprocess.run(
+                ["git", "diff", "--cached", "--quiet"],
+                cwd=repo_root,
+            )
+            logging.info("[Notebook Git] git diff --cached --quiet exit code: %s", diff_result.returncode)
+            has_staged_changes = diff_result.returncode != 0
+
+            commit_result = None
+            if has_staged_changes:
+                commit_message = os.environ.get(
+                    "COMFY_NOTEBOOK_GIT_MESSAGE",
+                    "ComfyUI-Notebook: auto-commit",
+                )
+                commit_result = run(["git", "commit", "-m", commit_message], label="git commit")
+            else:
+                logging.info("[Notebook Git] No new changes to commit, will still push existing commits.")
+
+            # Determine current branch and push explicitly to origin
+            branch_result = run(["git", "rev-parse", "--abbrev-ref", "HEAD"], label="git rev-parse")
+            current_branch = branch_result.stdout.strip() or "HEAD"
+            logging.info("[Notebook Git] Current branch resolved to: %s", current_branch)
+            push_result = run(["git", "push", "origin", current_branch], label="git push")
+
+            summary_parts = [
+                part
+                for part in [
+                    add_result.stdout.strip(),
+                    (commit_result.stdout.strip() if commit_result else ""),
+                    push_result.stdout.strip(),
+                ]
+                if part
+            ]
+            summary = "\n".join(summary_parts) or "Git push completed"
+
+            return {"status": "ok", "message": summary}
+        except subprocess.CalledProcessError as e:
+            logging.error("[Notebook Git] Git push failed: %s", e.stderr or str(e))
+            return {
+                "status": "error",
+                "message": e.stderr or str(e),
+            }
+        except Exception as e:
+            logging.exception("[Notebook Git] Unexpected git push error")
+            return {
+                "status": "error",
+                "message": str(e),
+            }
+
+    @server.PromptServer.instance.routes.post("/notebook/git_push")
+    async def notebook_git_push(request):
+        """
+        Add/commit/push changes in the user/default repo.
+        """
+        result = run_git_push()
+        status = 200 if result.get("status") == "ok" else 500
+        return web.json_response(result, status=status)
